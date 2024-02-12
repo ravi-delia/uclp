@@ -1,0 +1,66 @@
+* Unnamed Common Lisp Peg
+
+UCLP is an experimental implementation of PEG parsing in Common Lisp which compiles
+grammar rules directly to source code at runtime. A parsing expression grammar is a
+very elegent way of recognising, parsing, and transforming text- much more powerful
+than regular expressions without the complexity of a custom-built parser.
+
+UCLP patterns are just made of native data structures, so it's easy to compose patterns
+and interact with them in code. Unlike regular expressions, PEG syntax is pretty readable
+even if you aren't familiar with the specifics. The below example is largely copied from the
+[[https://janet-lang.org/docs/peg.html][Janet language documentation]]:
+
+#+BEGIN_SRC lisp
+  (defparameter ip-address
+    '(grammar
+       :dig (range "09")
+       :0-4 (range "04")
+       :0-5 (range "05")
+       :byte (choice
+               (sequence "25" :0-5)
+               (sequence "2" :0-4 :dig)
+               (sequence "1" :dig :dig)
+               (between 1 2 :dig))
+       :main (sequence :byte "." :byte "." :byte "." :byte)))
+
+  ; peg:match returns two values, a boolean indicating success/failure and a list of captures
+  (peg:match ip-address "0.0.0.0") ; -> t nil
+  (peg:match ip-address "elephant") ; -> nil
+  (peg:match ip-address "256.0.0.0") ; -> nil
+  (peg:match ip-address "0.0.0.0moretext") ; -> t nil
+#+END_SRC
+
+If you follow the link you'll see that the example is almost exactly copied, with
+the only differences being those forced by the differences in language syntax. UCLP
+is a very close reproduction of the semantics of Janet's PEG module. After experiencing
+how pleasant text parsing is in Janet you'll also feel the urge to rewrite it for every
+language you use.
+
+As of now UCLP is just barely usable. It supports all the primitive and combining patterns
+that Janet does, but is currently missing many of the capturing primitives and almost all
+niceties such as error messages for badly formed patterns. However, barely usable is still
+usable- I've been using a version of it to do little parsing tasks for a month or so. As
+of now it's only been tested on SBCL, but I plan on at least expanding that to some other
+implementations since there isn't much implementation-specific code. Except of course that
+for it to be performant it needs to be compiled quickly to a quick runtime, ideally
+machine code. 
+
+** Differences From Janet
+Mostly UCLP adheres to the behavior of Janet pegs, enough so that Janet's documentation is
+better than anything I'll have put together for a little while. However, there are some
+differences which obviously need to be documented somewhere. Some are due to differences
+in host language, some are due to taste, and some are just features I haven't implemented
+yet.
+
+*** Unimplemented:
+The following patterns from Janet are not currently implemented:
+~constant~, ~argument~, ~position~, ~column~, ~line~, ~cmt~, ~error~, ~drop~, ~uint~,
+~uint-be~, ~int~, ~int-be~, ~lenprefix~, ~number~
+
+*** Changes
+- ~between~, ~at-least~, ~at-most~, and ~look~ all have the pattern as the first argument, unlike
+  in Janet where it is the last argument
+- ~backmatch~ requires a tag argument, and will not look up captures on the capture stack
+- ~replace~ takes either a string which it captures literally, or a function which it calls.
+  Taking other datatypes literally will probably be in the next version. But unlike Janet,
+  it will never look the matches up

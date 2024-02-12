@@ -10,5 +10,4 @@
 		 (:file "basics")
 		 (:file "capture")
 		 (:file "core"))))
-  :description "An experimental implementation of Janet's PEG module in common lisp"
-  :in-order-to ((test-op (test-op "peg/tests"))))
+  :description "An experimental implementation of Janet's PEG module in common lisp")
