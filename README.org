@@ -52,10 +52,13 @@ differences which obviously need to be documented somewhere. Some are due to dif
 in host language, some are due to taste, and some are just features I haven't implemented
 yet.
 
-*** Unimplemented:
+*** Unimplemented
 The following patterns from Janet are not currently implemented:
 ~constant~, ~argument~, ~position~, ~column~, ~line~, ~cmt~, ~error~, ~drop~, ~uint~,
-~uint-be~, ~int~, ~int-be~, ~lenprefix~, ~number~
+~uint-be~, ~int~, ~int-be~, ~lenprefix~, and ~number~.
+
+Also, there are a number of built-in abbreviations in Janet's built in grammar (~:d+~ and
+such). As of now none of them are implemented in UCLP.
 
 *** Changes
 - ~between~, ~at-least~, ~at-most~, and ~look~ all have the pattern as the first argument, unlike
@@ -64,3 +67,7 @@ The following patterns from Janet are not currently implemented:
 - ~replace~ takes either a string which it captures literally, or a function which it calls.
   Taking other datatypes literally will probably be in the next version. But unlike Janet,
   it will never look the matches up
+- Grammars, represented in Janet by tables or structs, are written in UCLP with the
+  ~grammar~ rule, which is followed by alternating keywords naming rules and patterns
+  implementing them. 
+  
