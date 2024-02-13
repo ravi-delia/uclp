@@ -1,4 +1,4 @@
-(in-package :peg)
+(in-package :uclp)
 
 (defun match (rule str &optional (start 0) &rest args)
   (funcall (if (functionp rule) rule (compile-peg rule))

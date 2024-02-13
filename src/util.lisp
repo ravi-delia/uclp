@@ -1,4 +1,4 @@
-(in-package :peg)
+(in-package :uclp)
 
 ;; Semi-Norvig Queues: We need to implement the capture stack as a queue, but we will
 ;; never actually need to dequeue! So we can make optimizations which are otherwise
