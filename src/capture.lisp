@@ -3,23 +3,23 @@
 (defun push-item! (opts item-place &optional tag)
   (with-opts (opts)
     `(progn
-       ,@(list-if tag `(peg:tpush! ,tags ,tag ,item-place))
+       ,@(list-if tag `(tpush! ,tags ,tag ,item-place))
        (if ,accum?
 	   (if (stringp ,item-place)
-	       (peg:apush! ,accum ,item-place 0 (length ,item-place))
+	       (apush! ,accum ,item-place 0 (length ,item-place))
 	       (format ,accum "~a" ,item-place))
-	   (peg:qpush! ,caps ,item-place)))))
+	   (qpush! ,caps ,item-place)))))
        
 
 (defun compile-capture (opts expr)
   (destructuring-bind (pat &optional tag) (rest expr)
     (with-opts (opts)
-      `(let (,(save curr))
+      `(with-save (,curr)
 	 (when ,(compile-expr opts pat)
 	   (if ,accum?
-	       (peg:apush! ,accum ,str ,curr-bak ,curr)
-	       (peg:qpush! ,caps (subseq ,str ,curr-bak ,curr)))
-	   ,(when tag `(peg:tpush! ,tags ,tag (subseq ,str ,curr-bak ,curr)))
+	       (apush! ,accum ,str ,curr-bak ,curr)
+	       (qpush! ,caps (subseq ,str ,curr-bak ,curr)))
+	   ,(when tag `(tpush! ,tags ,tag (subseq ,str ,curr-bak ,curr)))
 	   t)))))
 
 (defun compile-argument (opts expr)
@@ -35,13 +35,13 @@
 	   ,(compile-expr opts pat)
 	   (progn
 	     (setf ,accum? t)
-	     (peg:with-save (,accum)
+	     (with-save (,accum)
 	       (let ((,$matched ,(compile-expr opts pat)))
 		 (when ,$matched
 		   (let ((,$accumed (subseq ,accum ,(to->back accum) (length ,accum))))
 		     (unless (emptyp ,$accumed)
-		       (peg:qpush! ,caps ,$accumed)
-		       ,(if tag `(peg:tpush! ,tags ,tag ,$accumed)))))
+		       (qpush! ,caps ,$accumed)
+		       ,(if tag `(tpush! ,tags ,tag ,$accumed)))))
 		 ,(restore accum)
 		 (setf ,accum? nil)
 		 ,$matched)))))))
@@ -49,7 +49,7 @@
 (defun compile-group (opts expr)
   (destructuring-bind (pat &optional tag) (rest expr)
     (with-opts (opts $matched $capped)
-      `(peg:with-save (,caps ,accum?)
+      `(with-save (,caps ,accum?)
 	 (setf ,accum? nil)
 	 (let ((,$matched ,(compile-expr opts pat))
 	       (,$capped (cdr ,(to->back caps))))
@@ -61,7 +61,7 @@
 (defun compile-replace (opts expr)
   (destructuring-bind (pat replacer &optional tag) (rest expr)
     (with-opts (opts $matched? $capped $result)
-      `(peg:with-save (,caps ,accum?)
+      `(with-save (,caps ,accum?)
 	 (setf ,accum? nil)
 	 (let ((,$matched? ,(compile-expr opts pat))
 	       ,@(list-if (functionp replacer) `(,$capped (cdr ,(to->back caps)))))
@@ -75,17 +75,17 @@
 
 (defun compile-backref (opts tag &optional other-tag)
   (with-opts (opts $bind $val)
-    `(let ((,$bind (peg:backref ,tags ,tag)))
+    `(let ((,$bind (backref ,tags ,tag)))
        (when ,$bind
-	 (let ((,$val (peg:tbind-value ,$bind)))
+	 (let ((,$val (tbind-value ,$bind)))
 	   ,(push-item! opts $val other-tag))
 	 t))))
 
 (defun compile-backmatch (opts tag)
   (with-opts (opts $bind $val $strc $valc)
-    `(let ((,$bind (peg:backref ,tags ,tag)))
+    `(let ((,$bind (backref ,tags ,tag)))
        (when ,$bind
-	 (let ((,$val (peg:tbind-value ,$bind)))
+	 (let ((,$val (tbind-value ,$bind)))
 	   (when (and (stringp ,$val)
 		      (<= (+ (length ,$val) ,curr) (length ,str)))
 	     (loop for ,$valc of-type character across ,$val
@@ -97,10 +97,10 @@
 (defun compile-unref (opts expr)
   (destructuring-bind (pat &optional tag) (rest expr)
     (with-opts (opts $result)
-      `(peg:with-save (,tags)
+      `(with-save (,tags)
 	 (let ((,$result ,(compile-expr opts pat)))
 	   (when ,$result
 	     ,(if tag
-		  `(peg::tscope-tag! ,tags ,(to->back tags) ,tag)
+		  `(:tscope-tag! ,tags ,(to->back tags) ,tag)
 		  (restore tags))
 	     ,$result))))))

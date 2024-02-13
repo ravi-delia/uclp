@@ -120,7 +120,7 @@
 	 (cons (list a b) (pairs rest))))))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter *state-vars* '(str args
+  (defparameter *state-vars* '(str str-end args
 			       curr curr-bak
 			       caps caps-bak
 			       tags tags-bak
@@ -159,7 +159,7 @@
 (defmacro with-opts ((opts &rest gensyms) &body body)
   `(with-gensyms ,gensyms
      (with-slots (prefix tail?) ,opts
-       (with-prefix prefix ,peg:*state-vars*
+       (with-prefix prefix ,*state-vars*
 	 ,@body))))
 
 (defun list-if (x obj)

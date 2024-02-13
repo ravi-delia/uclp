@@ -69,7 +69,7 @@
   (let ((pats (butlast (rest expr)))
 	(tail (last-elt expr)))
     (with-opts (opts)
-      `(peg:with-save (,curr ,caps ,tags ,accum)
+      `(with-save (,curr ,caps ,tags ,accum)
 	 (or ,@(mapcar
 		(lambda (pat)
 		  `(if ,(compile-expr opts pat)
@@ -80,7 +80,7 @@
 
 (defun compile-several (opts pat minimum &optional maximum)
   (with-opts (opts $matches $matched?)
-    `(peg:with-save (,curr ,caps ,tags ,accum)
+    `(with-save (,curr ,caps ,tags ,accum)
        (loop with ,$matches = 0
 	     for ,$matched? = ,(compile-expr opts pat)
 	     while ,$matched? do
@@ -96,7 +96,7 @@
 
 (defun compile-opt (opts pat)
   (with-opts (opts)
-    `(peg:with-save (,curr ,caps ,tags ,accum)
+    `(with-save (,curr ,caps ,tags ,accum)
        (if ,(compile-expr opts pat)
 	   t
 	   (progn ,(restore curr caps tags accum) t)))))
@@ -122,7 +122,7 @@
 
 (defun compile-look (opts pat n)
   (with-opts (opts $matched?)
-    `(peg:with-save (,curr ,caps ,tags ,accum)
+    `(with-save (,curr ,caps ,tags ,accum)
        (,@(cond ((< n 0) `(when (<= ,n ,curr) (incf ,curr ,n))) ;; We need to check for underflow
 	       ((> n 0) `(progn (incf ,curr ,n))) ;; Every primitive already checks for overflow
 		 (t '(progn)))
