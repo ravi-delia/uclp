@@ -119,22 +119,15 @@
     (t (destructuring-bind (a b &rest rest) list
 	 (cons (list a b) (pairs rest))))))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter *state-vars* '(str str-end args
-			       curr curr-bak
-			       caps caps-bak
-			       tags tags-bak
-			       accum accum? accum-bak)))
+;; str str-end args curr curr-bak caps caps-bak tags tags-bak accum accum? accum-bak
 
 (defstruct (compopts) prefix env)
 (defun copts (prefix env)
   (make-compopts :prefix prefix :env env))
-(defun copts-from (parent &key (prefix (compopts-prefix parent)) env)
-  (copts
-   prefix
-   (if env
-       (cons env (compopts-env parent))
-       (compopts-env parent))))
+
+(defun to-keyword (symbol)
+  (intern (symbol-name symbol)
+	  (find-package :keyword)))
 
 (defun prefsym (prefix symbol)
   (intern (concatenate
@@ -142,32 +135,16 @@
 	   (symbol-name prefix)
 	   "/"
 	   (symbol-name symbol))))
-(defun unprefix (symbol)
-  (let ((slash (position #\/ (symbol-name symbol))))
-    (unless slash (error 'the-symbol-has-no-slash))
-    (normalize-sym (intern (subseq (symbol-name symbol) (1+ slash))))))
 (defun to->back (symbol)
-  (intern (concatenate 'string (symbol-name symbol) "-BAK")))
-
-(defmacro with-prefix (prefix (&rest names) &body body)
-  (with-gensyms (pref)
-    `(let ((,pref ,prefix))
-       (let ,(mapcar (lambda (name) `(,name (prefsym ,pref ',name))) names)
-	 (declare ,(cons 'ignorable names))
-	 ,@body))))
-
-(defmacro with-opts ((opts &rest gensyms) &body body)
-  `(with-gensyms ,gensyms
-     (with-slots (prefix tail?) ,opts
-       (with-prefix prefix ,*state-vars*
-	 ,@body))))
+  (intern (concatenate 'string (symbol-name symbol) "-BAK")
+	  (symbol-package symbol)))
 
 (defun list-if (x obj)
   (when x (list obj)))
 
 (define-condition bad-place (error) (place))
 (defun save-for (place)
-  (case (unprefix place)
+  (case (to-keyword place)
     (:curr place)
     (:caps `(qsave ,place))
     (:tags `(tsave ,place))
@@ -187,21 +164,20 @@
     `(let ,bindings
        ,@body)))
 
-(defun checkpoint (&rest places)
+(defmacro checkpoint (&rest places)
   `(setf ,@(mapcan
 	    (lambda (p)
 	      (list (to->back p) (save-for p)))
 	    places)))
 
-(defun restore (&rest places)
-  (if (= (length places) 1)
-      (let* ((place (first places))
-	     (name (unprefix place)))
-	(case name
-	  (:curr `(setf ,place ,(to->back place)))
-	  (:caps `(qrestore! ,place ,(to->back place)))
-	  (:tags `(trestore! ,place ,(to->back place)))
-	  (:accum? `(setf ,place ,(to->back place)))
-	  (:accum `(arestore! ,place ,(to->back place)))
-	  (t (error 'bad-place :place place))))
-      `(progn ,@(mapcar #'restore places))))
+(defun restore-for (place)
+  (case (to-keyword place)
+    (:curr `(setf ,place ,(to->back place)))
+    (:caps `(qrestore! ,place ,(to->back place)))
+    (:tags `(trestore! ,place ,(to->back place)))
+    (:accum? `(setf ,place ,(to->back place)))
+    (:accum `(arestore! ,place ,(to->back place)))
+    (t (error 'bad-place :place place))))
+
+(defmacro restore (&rest places)
+  `(progn ,@(mapcar #'restore-for places)))

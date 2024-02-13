@@ -17,43 +17,38 @@
     (and caps (first caps))))
 
 (defun compile-peg (expr &optional (quiet? t))
-  "Compile EXPR to a peg matcher, for use with peg:match."
+  "Compile EXPR to a peg matcher, for use with uclp:match."
   (let ((out (compile nil (compile-toplevel expr :quiet? quiet?))))
     out))
 
 
 (defun compile-toplevel (expr &key quiet?)
-  (let ((opts (copts (gensym) nil)))
-    (with-opts (opts)
-      `(lambda (,str ,curr ,args)
-	 (declare ,@(list-if
-		     quiet?
-		     '(sb-ext:muffle-conditions sb-ext:compiler-note))
-		  (ignorable ,str ,curr ,args)
-		  (dynamic-extent ,curr)
-		  (fixnum ,curr)
-		  (string ,str)
-		  (vector ,args))
-	 (let ((,caps (make-queue))
-	       (,tags (make-tstack))
-	       (,accum (make-accum))
-	       (,accum? nil))
-	   (declare (ignorable ,caps ,tags ,accum ,accum?)
-		    (dynamic-extent ,accum?)
-		    (tstack ,tags)
-		    (accum ,accum)
-		    (boolean ,accum?))
-	   (if ,(compile-expr opts expr)
-	       (values t (qitems ,caps))
-	       nil))))))
+  `(lambda (str curr args)
+     (declare ,@(list-if
+		 quiet?
+		 '(sb-ext:muffle-conditions sb-ext:compiler-note))
+	      (ignorable str curr args)
+	      (dynamic-extent curr)
+	      (fixnum curr)
+	      (string str)
+	      (vector args))
+     (let ((caps (make-queue))
+	   (tags (make-tstack))
+	   (accum (make-accum))
+	   (accum? nil))
+       (declare (ignorable caps tags accum accum?)
+		(dynamic-extent accum?)
+		(tstack tags)
+		(accum accum)
+		(boolean accum?))
+       (if ,(compile-expr (make-compopts) expr)
+	   (values t (qitems caps))
+	   nil))))
 
 (defun env-lookup (env name)
   (when env
     (or (find name (first env))
 	(env-lookup (rest env) name))))
-
-(defun normalize-sym (sym)
-  (intern (string-upcase (symbol-name sym)) (find-package :keyword)))
 
 (define-condition unknown-pattern (error) (bad-sym text))
 (define-condition undefined-rule (error) (rule-name))
@@ -66,7 +61,7 @@
 			 (error 'undefined-rule :rule-name expr)))
     ((integerp expr) (compile-count opts expr))
     ((listp expr)
-      (case (normalize-sym (first expr))
+      (case (to-keyword (first expr))
 	(:range (compile-range opts expr))
 	(:set (compile-set opts (second expr)))
 
@@ -118,7 +113,7 @@
 	(:grammar (compile-grammar opts (rest expr)))
 
 	(t (error 'unknown-pattern
-		  :bad-sym (normalize-sym (first expr))
+		  :bad-sym (first expr)
 		  :text "Symbol is not recognized primitive pattern or combinator."))))))
 		       
 
