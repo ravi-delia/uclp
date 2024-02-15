@@ -2,7 +2,7 @@
 
 (defmacro push-item! (item-place &optional tag)
   `(progn
-     ,@(list-if tag `(tpush! tags tag item-place))
+     ,@(list-if tag `(tpush! tags ,tag ,item-place))
      (if accum?
 	 (if (stringp ,item-place)
 	     (apush! accum ,item-place 0 (length ,item-place))
@@ -17,14 +17,15 @@
 	 (if accum?
 	     (apush! accum str curr-bak curr)
 	     (qpush! caps (subseq str curr-bak curr)))
-	 ,(when tag `(tpush! tags tag (subseq str curr-bak curr)))
+	 ,(when tag `(tpush! tags ,tag (subseq str curr-bak curr)))
 	 t))))
 
-(defun compile-argument (opts expr)
-  (declare (ignore opts))
-  (destructuring-bind (n &optional tag) (rest expr)
-    `(when (< -1 ,n (length args))
-       (push-item! (aref args ,n) ,tag))))
+(defun compile-drop (opts pat)
+  (with-gensyms ($matched)
+    `(with-save (caps accum tags)
+       (let ((,$matched ,(compile-expr opts pat)))
+	 (restore caps accum tags)
+	 ,$matched))))
 
 (defun compile-accum (opts expr)
   (destructuring-bind (pat &optional tag) (rest expr)
@@ -67,9 +68,24 @@
 	   (when ,$matched?
 	     (let ((,$result ,(if (functionp replacer)
 				  `(apply ,replacer ,$capped)
-				  replacer)))
+				  `',replacer)))
 	       (push-item! ,$result ,tag)
 	       t)))))))
+(defun compile-cmt (opts expr)
+  (destructuring-bind (pat replacer &optional tag) (rest expr)
+    (with-gensyms ($matched $capped $result)
+      `(with-save (caps accum?)
+	 (setf accum? nil)
+	 (let ((,$matched ,(compile-expr opts pat))
+	       ,@(list-if (functionp replacer) `(,$capped (cdr caps-bak))))
+	   (restore caps accum?)
+	   (when ,$matched
+	     (let ((,$result ,(if (functionp replacer)
+				  `(apply ,replacer ,$capped)
+				  `',replacer)))
+	       (when ,$result
+		 (push-item! ,$result ,tag)
+		 t))))))))
 
 (defun compile-backref (opts tag &optional other-tag)
   (declare (ignore opts))
@@ -104,3 +120,20 @@
 		  `(tscope-tag! tags tags-bak ,tag)
 		  `(restore tags))
 	     ,$result))))))
+
+(defun compile-constant (expr)
+  (destructuring-bind (thing &optional tag) (rest expr)
+    (with-gensyms ($thing)
+      `(let ((,$thing (quote ,thing)))
+	 (push-item! ,$thing ,tag)
+	 t))))
+
+(defun compile-position (?tag)
+  `(progn (push-item! curr ,?tag) t))
+
+(defun compile-argument (opts expr)
+  (declare (ignore opts))
+  (destructuring-bind (n &optional tag) (rest expr)
+    `(when (< -1 ,n (length args))
+       (push-item! (aref args ,n) ,tag)
+       t)))

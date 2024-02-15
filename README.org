@@ -53,12 +53,21 @@ in host language, some are due to taste, and some are just features I haven't im
 yet.
 
 *** Unimplemented
-The following patterns from Janet are not currently implemented:
-~constant~, ~argument~, ~position~, ~column~, ~line~, ~cmt~, ~error~, ~drop~, ~uint~,
-~uint-be~, ~int~, ~int-be~, ~lenprefix~, and ~number~.
+Janet buffers and strings are simply byte strings, and Janet pegs work on arbitrary
+strings of bytes. UCLP expects to work with Common Lisp strings, which in general are
+/not/ byte strings but vectors of type ~character~. As such the patterns intended to work
+on bytes are not implemented. These are: ~uint~, ~uint-be~, ~int~, and ~int-be~. Because
+using PEGs to parse binaries is so nice, I plan on at some point implementing some way of
+compiling PEGs intended to operate on raw bytes. However, specialization will be at
+compile-time and the above patterns will be availible only in a byte PEG.
+
+The following patterns from Janet are not currently implemented but will be one day:
+~column~, ~line~, ~error~, ~lenprefix~, and ~number~. There will need to be some changes
+in ~error~ due to the differences between Janet's error signals and Common Lisp's
+conditions.
 
 Also, there are a number of built-in abbreviations in Janet's built in grammar (~:d+~ and
-such). As of now none of them are implemented in UCLP.
+such). As of now none of them are implemented in UCLP, but it's on the list.
 
 *** Changes
 - ~between~, ~at-least~, ~at-most~, and ~look~ all have the pattern as the first argument, unlike

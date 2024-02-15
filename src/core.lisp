@@ -95,10 +95,18 @@
 	(:quote (compile-capture opts expr))
 	(:<- (compile-capture opts expr))
 
+	(:drop (compile-drop opts (second expr)))
+
+	(:constant (compile-constant expr))
+
+	(:position (compile-position (second expr)))
+	(:$ (compile-position (second expr)))
+
 	(:argument (compile-argument opts expr))
 
 	(:replace (compile-replace opts expr))
 	(:/ (compile-replace opts expr))
+	(:cmt (compile-cmt opts expr))
 
 	(:accumulate (compile-accum opts expr))
 	(:% (compile-accum opts expr))
