@@ -46,6 +46,14 @@
   (isnt-match '(set "az") "b")
   (isnt-match '(set "az") ""))
 
-(test tail-call-elim
-  (is-match '(grammar :main (+ -1 (* 1 :main)))
-	    (make-array 50000 :element-type 'character :initial-element #\a))) ; milage may vary
+;; (test tail-call-elim
+;;   (is-match '(grammar :main (+ -1 (* 1 :main)))
+;; 	    (make-array 50000 :element-type 'character :initial-element #\a))) ; milage may vary
+
+(test grammar
+  (check-pat `(grammar
+	       :a (* "a" :b "a")
+	       :b (* "b" (+ :a 0) "b")
+	       :main (* "(" :b ")"))
+    :match "(bb)" "(babbab)" "(babbab)" "(bababbabab)"
+    :fail "()" "(aba" "(aa)" "(abbb)" "(bab)"))

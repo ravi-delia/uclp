@@ -3,7 +3,20 @@
 (def-suite capture :in uclp)
 (in-suite capture)
 
-(test backtrack-tags
+(test nested-accum
+  (check-pat `(% (* (+ (% (* '"a" '"b"))
+		       (/ (% (* '"c" '"d")) ,#'string-upcase))
+		    '"ef"))
+    :match ("abef" :result '("abef")) ("cdef" :result '("CDef"))))
+
+(test backref
+  (check-pat `(grammar
+	       :pad (any "=")
+	       :open (* "[" (<- :pad :n) "[")
+	       :close (* "]" (cmt (* (backref :n) (<- :pad)) ,#'string=) "]")
+	       :main (* :open (any (if-not :close 1)) :close -1))
+    :match "[[]]" "[==[a]==]" "[[blark]]" "[[bl[ark]]" "[[bl]rk]]" "[===[]==]===]"
+    :fail "[[bl]rk]] " "[=[bl]]rk]=] " "[=[bl]==]rk]=] " "[==[]===]")
   (check-pat `(* (+ (<- "b" :b)
 		    (<- 1 :a))
 		 (+ (* (backmatch :a) "c")
@@ -11,9 +24,3 @@
 		 -1)
     :match "bb" "aac"
     :fail "cc" "ab"))
-
-(test nested-accum
-  (check-pat `(% (* (+ (% (* '"a" '"b"))
-		       (/ (% (* '"c" '"d")) ,#'string-upcase))
-		    '"ef"))
-    :match ("abef" :result '("abef")) ("cdef" :result '("CDef"))))
