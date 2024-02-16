@@ -61,13 +61,19 @@ using PEGs to parse binaries is so nice, I plan on at some point implementing so
 compiling PEGs intended to operate on raw bytes. However, specialization will be at
 compile-time and the above patterns will be availible only in a byte PEG.
 
+I'm not yet sure if UCLP will ever support a general ~number~ pattern. It's possible
+I'll bring in ~parse-float~ to make a ~float~ as well as a general ~number~ pattern.
+
 The following patterns from Janet are not currently implemented but will be one day:
-~column~, ~line~, ~error~, ~lenprefix~, and ~number~. There will need to be some changes
-in ~error~ due to the differences between Janet's error signals and Common Lisp's
-conditions.
+~column~, ~line~, and ~error~. There will need to be some changes in ~error~ due to the
+differences between Janet's error signals and Common Lisp's conditions.
 
 Also, there are a number of built-in abbreviations in Janet's built in grammar (~:d+~ and
 such). As of now none of them are implemented in UCLP, but it's on the list.
+
+*** Implemented
+- While UCLP does not have ~number~, it does have ~integer~, which takes identical
+  arguments and parses an integer using ~parse-integer~. 
 
 *** Changes
 - ~between~, ~at-least~, ~at-most~, and ~look~ all have the pattern as the first argument, unlike

@@ -24,3 +24,8 @@
 		 -1)
     :match "bb" "aac"
     :fail "cc" "ab"))
+
+(test lenprefix
+  (check-pat `'(* (lenprefix (* (integer 1 nil :b) (integer 1)) "a") (? (backref :b)))
+    :match "35aaa" "31aaaa" ("30aaaa" :result '("30aaa"))
+    :fail "33aa" "3aab" "33ab" "v2aaa"))

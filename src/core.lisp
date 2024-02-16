@@ -118,6 +118,9 @@
 	(:backmatch (compile-backmatch opts (second expr)))
 	(:unref (compile-unref opts expr))
 
+	(:integer (compile-integer opts expr))
+	(:lenprefix (compile-lenprefix opts expr))
+
 	(:grammar (compile-grammar opts (rest expr)))
 
 	(t (error 'unknown-pattern
