@@ -73,7 +73,11 @@ such). As of now none of them are implemented in UCLP, but it's on the list.
 
 *** Implemented
 - While UCLP does not have ~number~, it does have ~integer~, which takes identical
-  arguments and parses an integer using ~parse-integer~. 
+  arguments and parses an integer using ~parse-integer~.
+- The pattern ~(sub super-pat sub-pat)~ first matches ~super-pat~, then matches ~sub-pat~
+  /within the length/ of whatever ~super-pat~ matched. While matching ~sub-pat~ it is
+  exactly as though the input string ends where ~super-pat~ stops. This actually is in
+  Janet, but isn't on the documentation page so the difference is noted here.
 
 *** Changes
 - ~between~, ~at-least~, ~at-most~, and ~look~ all have the pattern as the first argument, unlike

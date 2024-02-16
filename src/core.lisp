@@ -32,12 +32,14 @@
 	      (fixnum curr)
 	      (string str)
 	      (vector args))
-     (let ((caps (make-queue))
+     (let ((strlen (length str)) ; Modifiable for use in SUB
+	   (caps (make-queue))
 	   (tags (make-tstack))
 	   (accum (make-accum))
 	   (accum? nil))
-       (declare (ignorable caps tags accum accum?)
-		(dynamic-extent accum?)
+       (declare (ignorable strlen caps tags accum accum?)
+		(dynamic-extent accum? strlen)
+		(fixnum strlen)
 		(tstack tags)
 		(accum accum)
 		(boolean accum?))
@@ -90,6 +92,8 @@
 
 	(:thru (compile-thru opts (second expr)))
 	(:to (compile-to opts (second expr)))
+
+	(:sub (compile-sub opts (second expr) (third expr)))
 
 	(:capture (compile-capture opts expr))
 	(:quote (compile-capture opts expr))

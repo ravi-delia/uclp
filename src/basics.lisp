@@ -12,7 +12,7 @@
 (defun compile-literal (opts literal)
   (declare (ignore opts))
   (with-gensyms ($strc $litc $i)
-    `(when (<= (+ curr ,(length literal)) (length str))
+    `(when (<= (+ curr ,(length literal)) strlen)
        (loop for ,$i of-type fixnum from curr below (+ curr ,(length literal))
 	     for ,$strc of-type character = (char str ,$i)
 	     for ,$litc of-type character across ,literal
@@ -22,8 +22,8 @@
 (defun compile-count (opts count)
   (declare (ignore opts))
   (if (< count 0)
-      `(> (+ curr ,(- count)) (length str))
-      `(when (<= (+ curr ,count) (length str))
+      `(> (+ curr ,(- count)) strlen)
+      `(when (<= (+ curr ,count) strlen)
 	 (incf curr ,count)
 	 t)))
 
@@ -33,7 +33,7 @@
   (destructuring-bind (_ &rest range-strs) rexpr
     (declare (ignore _))
     (with-gensyms ($c)
-      `(when (< curr (length str))
+      `(when (< curr strlen)
 	 (let* ((,$c (char str curr)))
 	   (when (or ,@(loop for s in range-strs
 			     if (length= s 2)
@@ -46,7 +46,7 @@
 (defun compile-set (opts set)
   (declare (ignore opts))
   (with-gensyms ($strc $setc)
-    `(if (= curr (length str))
+    `(if (= curr strlen)
 	 nil
 	 (let ((,$strc (char str curr)))
 	   ,(if (< (length set) 8)
@@ -141,8 +141,19 @@
   `(and (not ,(compile-look opts cond 0)) ,(compile-expr opts pat)))
 
 ;; With tail call elim these should compile to code just as efficient
-;; as handwritten loops- maybe even more effecient
+;; as handwritten loops- maybe even more efficient
 (defun compile-thru (opts pat)
   (compile-expr opts `(grammar :main (+ ,pat (* 1 :main)))))
 (defun compile-to (opts pat)
   (compile-thru opts `(look ,pat 0)))
+
+(defun compile-sub (opts super-pat sub-pat)
+  (with-gensyms ($matched)
+    `(with-save (curr)
+       (when ,(compile-expr opts super-pat)
+	 (with-save (strlen)
+	   (setf strlen curr)
+	   (restore curr)
+	   (let ((,$matched ,(compile-expr opts sub-pat)))
+	     (restore strlen)
+	     ,$matched))))))

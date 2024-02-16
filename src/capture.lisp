@@ -103,7 +103,7 @@
        (when ,$bind
 	 (let ((,$val (tbind-value ,$bind)))
 	   (when (and (stringp ,$val)
-		      (<= (+ (length ,$val) curr) (length str)))
+		      (<= (+ (length ,$val) curr) strlen))
 	     (loop for ,$valc of-type character across ,$val
 		   for ,$strc of-type character = (char str curr)
 		   do (if (char/= ,$valc ,$strc) (return nil))

@@ -57,3 +57,8 @@
 	       :main (* "(" :b ")"))
     :match "(bb)" "(babbab)" "(babbab)" "(bababbabab)"
     :fail "()" "(aba" "(aa)" "(abbb)" "(bab)"))
+
+(test sub
+  (check-pat `(* (sub (<- 2 :b) (* (any "b") -1)) (backmatch :b))
+    :match "bbbb" "bbbbc"
+    :fail "bbb" "" "1" "bbcc"))

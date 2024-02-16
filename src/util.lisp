@@ -149,6 +149,7 @@
     (:caps `(qsave ,place))
     (:tags `(tsave ,place))
     (:accum? place)
+    (:strlen place)
     (:accum `(asave ,place))
     (t (error 'bad-place :place place))))
 
@@ -177,6 +178,7 @@
     (:tags `(trestore! ,place ,(to->back place)))
     (:accum? `(setf ,place ,(to->back place)))
     (:accum `(arestore! ,place ,(to->back place)))
+    (:strlen `(setf ,place ,(to->back place)))
     (t (error 'bad-place :place place))))
 
 (defmacro restore (&rest places)
