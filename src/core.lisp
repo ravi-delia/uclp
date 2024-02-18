@@ -57,7 +57,7 @@
 
 (defun compile-expr (opts expr)
   (cond
-    ((stringp expr) (compile-literal opts expr))
+    ((strform? expr) (compile-literal opts (from-strform expr)))
     ((keywordp expr) (if (env-lookup (compopts-env opts) expr)
 			 (list (prefsym (compopts-prefix opts) expr))
 			 (error 'undefined-rule :rule-name expr)))
@@ -65,7 +65,7 @@
     ((listp expr)
       (case (to-keyword (first expr))
 	(:range (compile-range opts expr))
-	(:set (compile-set opts (second expr)))
+	(:set (compile-set opts (from-strform (second expr))))
 
 	(:sequence (compile-sequence opts expr))
 	(:* (compile-sequence opts expr))

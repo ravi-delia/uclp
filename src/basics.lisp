@@ -30,8 +30,7 @@
 (define-condition compile-range (error) (expr datum text))
 (defun compile-range (opts rexpr)
   (declare (ignore opts))
-  (destructuring-bind (_ &rest range-strs) rexpr
-    (declare (ignore _))
+  (let ((range-strs (mapcar #'from-strform (rest rexpr))))
     (with-gensyms ($c)
       `(when (< curr strlen)
 	 (let* ((,$c (char str curr)))

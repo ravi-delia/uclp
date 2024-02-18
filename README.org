@@ -80,12 +80,16 @@ such). As of now none of them are implemented in UCLP, but it's on the list.
   Janet, but isn't on the documentation page so the difference is noted here.
 
 *** Changes
+- Anywhere a string literal can go, including those in ~range~ or ~set~, a character or
+  list of characters and strings can also go. This is because Common Lisp strings do not have
+  escape codes like Janet strings. So ~(range ("a" #\Newline))~ in UCLP is the same as
+  ~(range "a\n")~ in Janet.
 - ~between~, ~at-least~, ~at-most~, and ~look~ all have the pattern as the first argument, unlike
-  in Janet where it is the last argument
+  in Janet where it is the last argument.
 - ~backmatch~ requires a tag argument, and will not look up captures on the capture stack
 - ~replace~ takes either a string which it captures literally, or a function which it calls.
   Taking other datatypes literally will probably be in the next version. But unlike Janet,
-  it will never look the matches up
+  it will never look the matches up.
 - Grammars, represented in Janet by tables or structs, are written in UCLP with the
   ~grammar~ rule, which is followed by alternating keywords naming rules and patterns
   implementing them. 

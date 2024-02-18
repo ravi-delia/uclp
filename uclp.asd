@@ -18,6 +18,7 @@
   :pathname "test"
   :components
   ((:file "init")
+   (:file "util-test" :depends-on ("init"))
    (:file "core-test" :depends-on ("init"))
    (:file "basics-test" :depends-on ("init"))
    (:file "capture-test" :depends-on ("init")))

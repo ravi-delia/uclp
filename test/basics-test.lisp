@@ -5,9 +5,13 @@
 
 (test literal-matches-from-start
   (is-match "a" "a")
-  (is-match "a" "ab")
+  (is-match #\a "ab")
   (isnt-match "ab" "a")
   (isnt-match "ab" "ab" :start 1))
+(test strform-converted
+  (is-match #\Newline (string #\Newline))
+  (is-match '(#\A #\a) "Aa")
+  (is-match '("ab") "ab"))
 (test empty-string-matches
   (is-match "" "abc")
   (is-match "" "abc" :start 3))
@@ -33,14 +37,14 @@
 
 (test range
   (is-match '(range "ac") "a")
-  (is-match '(range "ae") "c")
+  (is-match '(range (#\a #\c)) "c")
   (is-match '(range "ac") "c")
   (isnt-match '(range "az") "A")
   (isnt-match '(range "az") "7")
   (isnt-match '(range "AZ") "a"))
 
 (test set
-  (is-match '(set "a1Z_") "18")
+  (is-match '(set ("a1" #\Z #\_)) "18")
   (is-match '(set "a1Z_") "a7")
   (is-match '(set "a1Z_") "_1")
   (isnt-match '(set "az") "b")

@@ -112,6 +112,18 @@
 ;; ;;;;;;;;;;;;;;;;;;; ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defun strform? (strform)
+  (or (stringp strform)
+      (characterp strform)
+      (and (listp strform) (every #'strform? strform))))
+(defun from-strform (strlikes)
+  "Any place we normally take a string, also accept a list of strings and/or chars"
+  (if (or (stringp strlikes) (characterp strlikes))
+      (string strlikes)
+      (reduce (lambda (s1 s2) (concatenate 'string s1 s2))
+	      strlikes
+	      :key #'string)))
+
 (defun pairs (list)
   (cond
     ((null list) nil)
