@@ -137,8 +137,8 @@
 (defun copts (prefix env)
   (make-compopts :prefix prefix :env env))
 
-(defun to-keyword (symbol)
-  (intern (symbol-name symbol)
+(defun to-keyword (name)
+  (intern (if (symbolp name) (symbol-name name) name)
 	  (find-package :keyword)))
 
 (defun prefsym (prefix symbol)

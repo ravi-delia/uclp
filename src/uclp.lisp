@@ -1,5 +1,6 @@
 (defpackage :uclp
   (:use :cl :alexandria)
   (:export
-   :compile-peg :match))
+   :compile-peg :match
+   :*aliases* :register-alias! :register-alias-suite!))
 

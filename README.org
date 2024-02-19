@@ -1,9 +1,13 @@
 * Unnamed Common Lisp Peg
 
-UCLP is an experimental implementation of PEG parsing in Common Lisp which compiles
-grammar rules directly to source code at runtime. A parsing expression grammar is a
-very elegent way of recognising, parsing, and transforming text- much more powerful
-than regular expressions without the complexity of a custom-built parser.
+UCLP is an experimental implementation of [[https://en.wikipedia.org/wiki/Parsing_expression_grammar][PEG parsing]] in Common Lisp which compiles
+grammar rules directly to source code at runtime. A parsing expression grammar is a very
+elegent way of recognising, parsing, and transforming text- much more powerful than
+regular expressions without the complexity of a custom-built parser. Note that while it is
+possible to parse PEGs in guarenteed linear time (at the cost of linear space) with a
+packrat parser, UCLP does not. Most patterns unless very poorly written will run in linear
+time anyway, and for ease of use some necessary departures from the strict definition are
+included.
 
 UCLP patterns are just made of native data structures, so it's easy to compose patterns
 and interact with them in code. Unlike regular expressions, PEG syntax is pretty readable
@@ -23,11 +27,11 @@ even if you aren't familiar with the specifics. The below example is largely cop
                (between 1 2 :dig))
        :main (sequence :byte "." :byte "." :byte "." :byte)))
 
-  ; peg:match returns two values, a boolean indicating success/failure and a list of captures
-  (peg:match ip-address "0.0.0.0") ; -> t nil
-  (peg:match ip-address "elephant") ; -> nil
-  (peg:match ip-address "256.0.0.0") ; -> nil
-  (peg:match ip-address "0.0.0.0moretext") ; -> t nil
+  ; uclp:match returns two values, a boolean indicating success/failure and a list of captures
+  (uclp:match ip-address "0.0.0.0") ; -> t nil
+  (uclp:match ip-address "elephant") ; -> nil
+  (uclp:match ip-address "256.0.0.0") ; -> nil
+  (uclp:match ip-address "0.0.0.0moretext") ; -> t nil
 #+END_SRC
 
 If you follow the link you'll see that the example is almost exactly copied, with
@@ -68,9 +72,6 @@ The following patterns from Janet are not currently implemented but will be one 
 ~column~, ~line~, and ~error~. There will need to be some changes in ~error~ due to the
 differences between Janet's error signals and Common Lisp's conditions.
 
-Also, there are a number of built-in abbreviations in Janet's built in grammar (~:d+~ and
-such). As of now none of them are implemented in UCLP, but it's on the list.
-
 *** Implemented
 - While UCLP does not have ~number~, it does have ~integer~, which takes identical
   arguments and parses an integer using ~parse-integer~.
@@ -92,5 +93,27 @@ such). As of now none of them are implemented in UCLP, but it's on the list.
   it will never look the matches up.
 - Grammars, represented in Janet by tables or structs, are written in UCLP with the
   ~grammar~ rule, which is followed by alternating keywords naming rules and patterns
-  implementing them. 
+  implementing them.
+- Because the reader doesn't distinguish between ~:s~ and ~:S~, the complement of a built-in
+  pattern is prefixed with ~!~. So ~:!s~ instead of ~:S~.
+- UCLP includes any (~*~) and some (~+~) varients of complement patterns. So ~:!d+~ is
+  ~(some (if-not :d 1))~. See *Aliases* below
   
+** Aliases
+UCLP offers aliases, keywords that stand in for larger patterns, similar to the Janet's
+built-in patterns. And like built-in patterns, aliases are user extensible. However, there
+are a number of differences which are important to be aware of. Aliases are not first
+class citizens of UCLP- rather than full mutually recursive subpatterns, they are simple
+find-and-replace macros, inserted literally. You can reference other aliases from inside
+one, but if you create a cycle it'll just blow out the stack. So just be cautious!
+
+Aliases are stored in the alist ~*aliases*~. You can manipulate ~*aliases*~ directly,
+or call the helper functions ~register-alias!~ and ~register-alias-suite!~. Both take the
+name of the alias as a keyword, and the body as a peg expression, and push the new alias
+to ~*aliases*~. However, ~register-alias-suite!~ will also add the complement, some, and
+any varients, like so:
+
+#+BEGIN_SRC lisp
+  (uclp:register-alias-suite! :v '(set "vV"))
+  (uclp:match '(* :v (<- :!v+)) "v not a V") ; => t (" not a ")
+#+END_SRC

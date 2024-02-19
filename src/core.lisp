@@ -21,6 +21,26 @@
   (let ((out (compile nil (compile-toplevel expr :quiet? quiet?))))
     out))
 
+(defparameter *aliases* nil)
+(defun register-alias! (alias pattern)
+  "Does not check pattern, but DO NOT put a recursive pattern. Probably
+you shouldn't capture either"
+  (unless (null pattern)
+    (push (cons alias pattern) *aliases*)))
+(defun register-alias-suite! (alias pattern)
+  "Adds pattern under alias, but also !alias, alias*, alias+, !alias*, !alias+"
+  (let* ((sn (symbol-name alias))
+	 (!sn (concatenate 'string "!" sn))
+	 (sn+ (concatenate 'string sn "+"))
+	 (!sn+ (concatenate 'string !sn "+"))
+	 (sn* (concatenate 'string sn "*"))
+	 (!sn* (concatenate 'string !sn "*"))
+	 (!pattern `(if-not ,pattern 1)))
+    (mapcar #'register-alias!
+	    (mapcar #'to-keyword (list sn !sn sn+ !sn+ sn* !sn*))
+	    (list pattern !pattern
+		  `(some ,pattern) `(some ,!pattern)
+		  `(any ,pattern) `(any ,!pattern)))))
 
 (defun compile-toplevel (expr &key quiet?)
   `(lambda (str curr args)
@@ -58,8 +78,10 @@
 (defun compile-expr (opts expr)
   (cond
     ((strform? expr) (compile-literal opts (from-strform expr)))
-    ((keywordp expr) (if (env-lookup (compopts-env opts) expr)
-			 (list (prefsym (compopts-prefix opts) expr))
+    ((keywordp expr) (or (if (env-lookup (compopts-env opts) expr)
+			     (list (prefsym (compopts-prefix opts) expr)))
+			 (if-let ((assoced (assoc expr *aliases*)))
+			   (compile-expr opts (cdr assoced))) 
 			 (error 'undefined-rule :rule-name expr)))
     ((integerp expr) (compile-count opts expr))
     ((listp expr)
@@ -132,3 +154,12 @@
 		  :text "Symbol is not recognized primitive pattern or combinator."))))))
 		       
 
+(defparameter *base-aliases*
+  '(:d (range "09")
+    :a (range "az" "AZ")
+    :w (range "az" "AZ" "09")
+    :s (set (#\tab #\return #\newline #\null #\page #\vt #\space))
+    :h (range "09" "af" "AF")))
+
+(mapcar (lambda (pair) (register-alias-suite! (first pair) (second pair)))
+	(pairs *base-aliases*))
