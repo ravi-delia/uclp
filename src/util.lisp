@@ -106,12 +106,6 @@
 	finally (setf (fill-pointer tstack) goodc))
   nil)
 
-;;;;;;;;;;;;;;;;;;;;;;;;;
-;; ;;;;;;;;;;;;;;;;;;; ;;
-;; ;; General Tools ;; ;;
-;; ;;;;;;;;;;;;;;;;;;; ;;
-;;;;;;;;;;;;;;;;;;;;;;;;;
-
 (defun strform? (strform)
   (or (stringp strform)
       (characterp strform)
