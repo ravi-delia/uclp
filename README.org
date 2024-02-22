@@ -40,14 +40,11 @@ is a very close reproduction of the semantics of Janet's PEG module. After exper
 how pleasant text parsing is in Janet you'll also feel the urge to rewrite it for every
 language you use.
 
-As of now UCLP is just barely usable. It supports all the primitive and combining patterns
-that Janet does, but is currently missing many of the capturing primitives and almost all
-niceties such as error messages for badly formed patterns. However, barely usable is still
-usable- I've been using a version of it to do little parsing tasks for a month or so. As
-of now it's only been tested on SBCL, but I plan on at least expanding that to some other
-implementations since there isn't much implementation-specific code. Except of course that
-for it to be performant it needs to be compiled quickly to a quick runtime, ideally
-machine code. 
+As of now UCLP is usable. Bugs are to be expected, but almost all of Janet's patterns are
+supported and there shouldn't be any significant footguns. Unfortuantly it has only been
+tested on SBCL, but I plan on at least expanding that to some other implementations since
+there isn't much implementation-specific code. Except of course that for it to be
+performant it needs to be compiled quickly to a quick runtime, ideally machine code.
 
 ** Differences From Janet
 Mostly UCLP adheres to the behavior of Janet pegs, enough so that Janet's documentation is
@@ -55,6 +52,9 @@ better than anything I'll have put together for a little while. However, there a
 differences which obviously need to be documented somewhere. Some are due to differences
 in host language, some are due to taste, and some are just features I haven't implemented
 yet.
+
+Any difference in behavior from Janet not mentioned below is a *bug*, and either the
+behavior or the documentation will need to be changed.
 
 *** Unimplemented
 Janet buffers and strings are simply byte strings, and Janet pegs work on arbitrary

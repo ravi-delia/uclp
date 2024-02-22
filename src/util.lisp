@@ -125,6 +125,12 @@
     (t (destructuring-bind (a b &rest rest) list
 	 (cons (list a b) (pairs rest))))))
 
+(define-condition generic-error (error)
+  ((msg :initarg :msg :reader error-msg))
+  (:report (lambda (c s) (format s "~a" (error-msg c)))))
+(defun throw-msg! (msg) (error 'generic-error :msg msg))
+  
+
 ;; str str-end args curr curr-bak caps caps-bak tags tags-bak accum accum? accum-bak
 
 (defstruct (compopts) prefix env)

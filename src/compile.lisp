@@ -4,7 +4,15 @@
 (defparameter *argtype*
   `((:string ,#'strform? "string")
     (:tag ,#'keywordp "keyword")
-    (:pat ,(lambda (x) (declare (ignore x)) t))))
+    (:num ,#'integerp "integer")
+    (:reps ,#'positive-integer-p "positive integer")
+    (:pat ,(lambda (x) (declare (ignore x)) t))
+    (:any ,(lambda (x) (declare (ignore x)) t))))
+
+(defun add-type! (type typeform)
+  (if-let ((bind (assoc type *argtype*)))
+    (setf (cdr bind) typeform)
+    (push (cons type typeform) *argtype*)))
 
 (defun check-arg (argspec arg)
   (cond
@@ -58,10 +66,12 @@ grammar-error"
 	       (unless match? (grammar-error expr errstr arg))))
     t))
 
+(defun circularize! (list) (setf (cdr (last list)) list) list)
 (defun verify-rest! (spec expr reqarity)
-  (let ((argspec (nth (1+ reqarity) spec))
+  (let ((argspecs (circularize! (subseq spec (1+ reqarity))))
 	(restargs (subseq expr (1+ reqarity))))
     (loop for arg in restargs
+	  for argspec in argspecs
 	  do (multiple-value-bind (match? errstr) (check-arg argspec arg)
 	       (unless match? (grammar-error expr errstr arg)))))
   t)
@@ -85,13 +95,107 @@ grammar-error"
 (defparameter *patterns* (make-hash-table :test 'eq))
 
 (defmacro defpattern ((name &rest aliases) spec &body body)
-  (let ((destruct (mapcar (lambda (o) (if (listp o) (first o) o)) spec)))
+  "Bind pattern with name and aliases whose arguments obey SPEC.
+In BODY, OPTS is anaphorically bound"
+  (let ((destruct (mapcar (lambda (o) (if (listp o) (first o) o)) spec))
+	(qspec `(list ,@(loop for s in spec
+			      if (listp s)
+			      collect `(list ',(first s) ,@(rest s))
+			      else collect `(quote ,s)))))
     (with-gensyms ($pat $expr $n)
       `(let ((,$pat (make-pattern
-		     :name ,name :spec ,spec
+		     :name ',name :spec ,qspec
 		     :compile-fn
 		     (lambda (opts ,$expr)
-		       (destructuring-bind ,destruct expr
+		       (declare (ignorable opts))
+		       (destructuring-bind ,destruct (rest ,$expr)
 			 ,@body)))))
-	 (loop for ,$n in ,(cons name aliases)
-	       do (setf (gethash ,$n *patterns*) ,$pat))))))
+	 (loop for ,$n in ',(cons name aliases)
+	       do (setf (gethash (to-keyword ,$n) *patterns*) ,$pat))))))
+
+(defparameter *aliases* nil)
+(defun register-alias! (alias pattern)
+  "Does not check pattern, but DO NOT put a recursive pattern. Probably
+you shouldn't capture either"
+  (unless (null pattern)
+    (push (cons alias pattern) *aliases*)))
+(defun register-alias-suite! (alias pattern)
+  "Adds pattern under alias, but also !alias, alias*, alias+, !alias*, !alias+"
+  (let* ((sn (symbol-name alias))
+	 (!sn (concatenate 'string "!" sn))
+	 (sn+ (concatenate 'string sn "+"))
+	 (!sn+ (concatenate 'string !sn "+"))
+	 (sn* (concatenate 'string sn "*"))
+	 (!sn* (concatenate 'string !sn "*"))
+	 (!pattern `(if-not ,pattern 1)))
+    (mapcar #'register-alias!
+	    (mapcar #'to-keyword (list sn !sn sn+ !sn+ sn* !sn*))
+	    (list pattern !pattern
+		  `(some ,pattern) `(some ,!pattern)
+		  `(any ,pattern) `(any ,!pattern)))))
+
+(defparameter *base-aliases*
+  '(:d (range "09")
+    :a (range "az" "AZ")
+    :w (range "az" "AZ" "09")
+    :s (set (#\tab #\return #\newline #\null #\page #\vt #\space))
+    :h (range "09" "af" "AF")))
+
+(mapcar (lambda (pair) (register-alias-suite! (first pair) (second pair)))
+	(pairs *base-aliases*))
+
+(defun compile-toplevel (expr &key quiet?)
+  `(lambda (str curr args)
+     (declare ,@(list-if
+		 quiet?
+		 '(sb-ext:muffle-conditions sb-ext:compiler-note))
+	      (ignorable str curr args)
+	      (dynamic-extent curr)
+	      (fixnum curr)
+	      (string str)
+	      (vector args))
+     (let ((strlen (length str)) ; Modifiable for use in SUB
+	   (caps (make-queue))
+	   (tags (make-tstack))
+	   (accum (make-accum))
+	   (accum? nil))
+       (declare (ignorable strlen caps tags accum accum?)
+		(dynamic-extent accum? strlen)
+		(fixnum strlen)
+		(tstack tags)
+		(accum accum)
+		(boolean accum?))
+       (if ,(compile-expr (make-compopts) expr)
+	   (values t (qitems caps))
+	   nil))))
+
+(defun env-lookup (env name)
+  (when env
+    (or (find name (first env))
+	(env-lookup (rest env) name))))
+
+(define-condition unknown-pattern (error)
+  ((name :initarg :name :reader ukpat-name))
+  (:report (lambda (c s)
+	     (format s "~s is not a recognized pattern"
+		     (ukpat-name c)))))
+
+(define-condition undefined-rule (error)
+  ((rule-name :initarg :name :reader rule-name))
+  (:report (lambda (c s)
+	     (format s "~s is not defined in the current environment."
+		     (rule-name c)))))
+
+(defun compile-expr (opts expr)
+  (cond
+    ((strform? expr) (compile-literal opts (from-strform expr)))
+    ((keywordp expr) (or (if (env-lookup (compopts-env opts) expr)
+			     (list (prefsym (compopts-prefix opts) expr)))
+			 (if-let ((assoced (assoc expr *aliases*)))
+			   (compile-expr opts (cdr assoced))) 
+			 (error 'undefined-rule :rule-name expr)))
+    ((integerp expr) (compile-count opts expr))
+    ((listp expr) (if-let ((pattern (gethash (to-keyword (first expr)) *patterns*)))
+		    (and (verify-args! (pattern-spec pattern) expr)
+			 (funcall (pattern-compile-fn pattern) opts expr))
+		    (error 'unknown-pattern :name (first expr))))))

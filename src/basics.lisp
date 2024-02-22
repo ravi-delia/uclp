@@ -6,9 +6,6 @@
 ;; ;;;;;;;;;;;;;;;; ;;
 ;;;;;;;;;;;;;;;;;;;;;;
 
-;; Right now none of these use OPTS but down the road they might need type info
-;; and other such things.
-
 (defun compile-literal (opts literal)
   (declare (ignore opts))
   (with-gensyms ($strc $litc $i)
@@ -27,34 +24,31 @@
 	 (incf curr ,count)
 	 t)))
 
-(define-condition compile-range (error) (expr datum text))
-(defun compile-range (opts rexpr)
-  (declare (ignore opts))
-  (let ((range-strs (mapcar #'from-strform (rest rexpr))))
+(defpattern (range)
+    (&rest (ranges (lambda (s) (and (strform? s) (length= s 2)))
+		   "string of length 2"))
+  (let ((range-strs (mapcar #'from-strform ranges)))
     (with-gensyms ($c)
       `(when (< curr strlen)
 	 (let* ((,$c (char str curr)))
 	   (when (or ,@(loop for s in range-strs
-			     if (length= s 2)
-			     collect (list 'char<= (char s 0) $c (char s 1))
-			     else do
-				(error 'compile-range :expr rexpr :datum s :text "Bad range")))
+			     collect (list 'char<= (char s 0) $c (char s 1))))
 	     (incf curr)
 	     t))))))
 
-(defun compile-set (opts set)
-  (declare (ignore opts))
+(defpattern (set) ((set :string))
   (with-gensyms ($strc $setc)
-    `(if (= curr strlen)
-	 nil
-	 (let ((,$strc (char str curr)))
-	   ,(if (< (length set) 8)
-		`(if (or ,@(loop for c across set collect `(eq ,c ,$strc))) (incf curr))
-		`(loop for ,$setc of-type character across ,set
-		       if (char= ,$strc ,$setc) do
-			  (incf curr)
-			  (return t)
-		       finally (return nil)))))))
+    (let ((set (from-strform set)))
+      `(if (= curr strlen)
+	   nil
+	   (let ((,$strc (char str curr)))
+	     ,(if (< (length set) 8)
+		  `(if (or ,@(loop for c across set collect `(eq ,c ,$strc))) (incf curr))
+		  `(loop for ,$setc of-type character across ,set
+			 if (char= ,$strc ,$setc) do
+			    (incf curr)
+			    (return t)
+			 finally (return nil))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 ;; ;;;;;;;;;;;;;;;;; ;;
@@ -62,23 +56,19 @@
 ;; ;;;;;;;;;;;;;;;;; ;;
 ;;;;;;;;;;;;;;;;;;;;;;;
 
-(define-condition missing-arguments (error) (expr))
-(defun compile-sequence (opts expr)
-  (when (emptyp (rest expr)) (error 'missing-arguments :expr expr))
-  (let ((pats (rest expr)))
-    `(and ,@(mapcar (lambda (p) (compile-expr opts p)) pats))))
+(defpattern (sequence *) (&rest (pats :pat))
+  `(and ,@(mapcar (lambda (p) (compile-expr opts p)) pats)))
 
-(defun compile-choice (opts expr)
-  (when (emptyp (rest expr)) (error 'missing-arguments :expr expr))
-  (let ((pats (butlast (rest expr)))
-	(tail (last-elt expr)))
+(defpattern (choice +) (&rest (pats :pat))
+  (let ((tail (last-elt pats))
+	(buttail (butlast pats)))
     `(with-save (curr caps tags accum)
        (or ,@(mapcar
 	      (lambda (pat)
 		`(if ,(compile-expr opts pat)
 		     t
 		     (restore curr caps tags accum)))
-	      pats)
+	      buttail)
 	   ,(compile-expr opts tail)))))
 
 (defun compile-several (opts pat minimum &optional maximum)
@@ -97,18 +87,32 @@
 		(restore curr caps tags accum)
 		(return (>= ,$matches ,minimum))))))
 
-(defun compile-opt (opts pat)
+(defpattern (any) ((pat :pat))
+  (compile-several opts pat 0))
+(defpattern (some) ((pat :pat))
+  (compile-several opts pat 1))
+(defpattern (between) ((pat :pat) (low :reps) (high :reps))
+  (compile-several opts pat low high))
+(defpattern (at-least) ((pat :pat) (n :reps))
+  (compile-several opts pat n))
+(defpattern (at-most) ((pat :pat) (n :reps))
+  (compile-several opts pat 0 n))
+(defpattern (repeat) ((pat :pat) (n :reps))
+  (compile-several opts pat n n))
+
+(defpattern (opt ?) ((pat :pat))
   `(with-save (curr caps tags accum)
      (if ,(compile-expr opts pat)
 	 t
 	 (progn (restore curr caps tags accum) t))))
 
-(define-condition no-main-rule (error) (grammar))
-(defun compile-grammar (opts expr)
-  (let* ((name-bodies (pairs expr))
+(defpattern (grammar) (&rest (pats :pat))
+  (verify-args! '(&rest (name :tag) (pat :pat)) `(grammar ,@pats))
+  (let* ((name-bodies (pairs pats))
 	 (knames (mapcar #'first name-bodies))
 	 (bodies (mapcar #'second name-bodies)))
-    (unless (find :main knames) (error 'no-main-rule :grammar expr))
+    (unless (find :main knames)
+      (throw-msg! (format nil "grammar error: no main in ~%~s" `(grammar ,@pats))))
     (push knames (compopts-env opts))
     (unless (compopts-prefix opts) (setf (compopts-prefix opts) (gensym)))
     (let* ((prefix (compopts-prefix opts))
@@ -132,21 +136,23 @@
 	 (let ((,$matched? ,(compile-expr opts pat)))
 	   (restore curr caps tags accum)
 	   ,$matched?)))))
-(defun compile-not (opts pat)
+(defpattern (look >) ((pat :pat) (n :num))
+  (compile-look opts pat n))
+(defpattern (not !) ((pat :pat))
   `(not ,(compile-look opts pat 0)))
-(defun compile-if (opts cond pat)
+(defpattern (if) ((cond :pat) (pat :pat))
   `(and ,(compile-look opts cond 0) ,(compile-expr opts pat)))
-(defun compile-if-not (opts cond pat)
+(defpattern (if-not) ((cond :pat) (pat :pat))
   `(and (not ,(compile-look opts cond 0)) ,(compile-expr opts pat)))
 
 ;; With tail call elim these should compile to code just as efficient
 ;; as handwritten loops- maybe even more efficient
-(defun compile-thru (opts pat)
+(defpattern (thru) ((pat :pat))
   (compile-expr opts `(grammar :main (+ ,pat (* 1 :main)))))
-(defun compile-to (opts pat)
-  (compile-thru opts `(look ,pat 0)))
+(defpattern (to) ((pat :pat))
+  (compile-expr opts `(thru (look ,pat 0))))
 
-(defun compile-sub (opts super-pat sub-pat)
+(defpattern (sub) ((super-pat :pat) (sub-pat :pat))
   (with-gensyms ($matched)
     `(with-save (curr)
        (when ,(compile-expr opts super-pat)
