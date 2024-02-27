@@ -18,6 +18,3 @@
   (signals uclp::undefined-rule
     (match :v "video"))
   (isnt-match :w " not w!"))
-
-    
-    

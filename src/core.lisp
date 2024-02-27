@@ -16,8 +16,8 @@
     (declare (ignore _))
     (and caps (first caps))))
 
-(defun compile-peg (expr &optional (quiet? t))
+(defun compile-peg (expr &rest opts)
   "Compile EXPR to a peg matcher, for use with uclp:match."
-  (let ((out (compile nil (compile-toplevel expr :quiet? quiet?))))
+  (let ((out (compile nil (apply #'compile-toplevel expr opts))))
     out))
 

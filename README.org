@@ -2,9 +2,9 @@
 
 UCLP is an experimental implementation of [[https://en.wikipedia.org/wiki/Parsing_expression_grammar][PEG parsing]] in Common Lisp which compiles
 grammar rules directly to source code at runtime. A parsing expression grammar is a very
-elegent way of recognising, parsing, and transforming text- much more powerful than
+elegant way of recognizing, parsing, and transforming text- much more powerful than
 regular expressions without the complexity of a custom-built parser. Note that while it is
-possible to parse PEGs in guarenteed linear time (at the cost of linear space) with a
+possible to parse PEGs in guaranteed linear time (at the cost of linear space) with a
 packrat parser, UCLP does not. Most patterns unless very poorly written will run in linear
 time anyway, and for ease of use some necessary departures from the strict definition are
 included.
@@ -24,7 +24,7 @@ even if you aren't familiar with the specifics. The below example is largely cop
                (sequence "25" :0-5)
                (sequence "2" :0-4 :dig)
                (sequence "1" :dig :dig)
-               (between 1 2 :dig))
+               (between :dig 1 2))
        :main (sequence :byte "." :byte "." :byte "." :byte)))
 
   ; uclp:match returns two values, a boolean indicating success/failure and a list of captures
@@ -41,7 +41,7 @@ how pleasant text parsing is in Janet you'll also feel the urge to rewrite it fo
 language you use.
 
 As of now UCLP is usable. Bugs are to be expected, but almost all of Janet's patterns are
-supported and there shouldn't be any significant footguns. Unfortuantly it has only been
+supported and there shouldn't be any significant footguns. Unfortunately it has only been
 tested on SBCL, but I plan on at least expanding that to some other implementations since
 there isn't much implementation-specific code. Except of course that for it to be
 performant it needs to be compiled quickly to a quick runtime, ideally machine code.
@@ -63,7 +63,7 @@ strings of bytes. UCLP expects to work with Common Lisp strings, which in genera
 on bytes are not implemented. These are: ~uint~, ~uint-be~, ~int~, and ~int-be~. Because
 using PEGs to parse binaries is so nice, I plan on at some point implementing some way of
 compiling PEGs intended to operate on raw bytes. However, specialization will be at
-compile-time and the above patterns will be availible only in a byte PEG.
+compile-time and the above patterns will likely be available only in a byte PEG.
 
 I'm not yet sure if UCLP will ever support a general ~number~ pattern. It's possible
 I'll bring in ~parse-float~ to make a ~float~ as well as a general ~number~ pattern.
@@ -110,7 +110,7 @@ Aliases are stored in the alist ~*aliases*~. You can manipulate ~*aliases*~ dire
 or call the helper functions ~register-alias!~ and ~register-alias-suite!~. Both take the
 name of the alias as a keyword, and the body as a peg expression, and push the new alias
 to ~*aliases*~. However, ~register-alias-suite!~ will also add the complement, some, and
-any varients, like so:
+any variants, like so:
 
 #+BEGIN_SRC lisp
   (uclp:register-alias-suite! :v '(set "vV"))

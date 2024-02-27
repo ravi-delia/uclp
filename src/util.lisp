@@ -133,10 +133,6 @@
 
 ;; str str-end args curr curr-bak caps caps-bak tags tags-bak accum accum? accum-bak
 
-(defstruct (compopts) prefix env)
-(defun copts (prefix env)
-  (make-compopts :prefix prefix :env env))
-
 (defun to-keyword (name)
   (intern (if (symbolp name) (symbol-name name) name)
 	  (find-package :keyword)))

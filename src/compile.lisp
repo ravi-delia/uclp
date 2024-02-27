@@ -92,7 +92,7 @@ grammar-error"
     (verify-positionals! spec expr)))
 
 (defstruct (pattern) name spec compile-fn)
-(defparameter *patterns* (make-hash-table :test 'eq))
+(defvar *patterns* (make-hash-table :test 'eq))
 
 (defmacro defpattern ((name &rest aliases) spec &body body)
   "Bind pattern with name and aliases whose arguments obey SPEC.
@@ -144,15 +144,23 @@ you shouldn't capture either"
 (mapcar (lambda (pair) (register-alias-suite! (first pair) (second pair)))
 	(pairs *base-aliases*))
 
-(defun compile-toplevel (expr &key quiet?)
+(defstruct (compopts) prefix env)
+(defun copts (prefix env)
+  (make-compopts :prefix prefix :env env))
+
+(defun compile-toplevel (expr &key (quiet? t) debug?)
   `(lambda (str curr args)
      (declare ,@(list-if
 		 quiet?
 		 '(sb-ext:muffle-conditions sb-ext:compiler-note))
+	      (optimize ,@(if debug?
+			      '((speed 0))
+			      '((debug 0) (speed 3))))
+			      
 	      (ignorable str curr args)
 	      (dynamic-extent curr)
 	      (fixnum curr)
-	      (string str)
+	      (simple-string str)
 	      (vector args))
      (let ((strlen (length str)) ; Modifiable for use in SUB
 	   (caps (make-queue))
