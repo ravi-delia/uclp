@@ -29,3 +29,11 @@
   (check-pat `'(* (lenprefix (* (integer 1 nil :b) (integer 1)) "a") (? (backref :b)))
     :match "35aaa" "31aaaa" ("30aaaa" :result '("30aaa"))
     :fail "33aa" "3aab" "33ab" "v2aaa"))
+
+(define-condition test-error (peg-error) ())
+(test error
+  (is-match '(* 1 (error -1) 1) "ab")
+  (signals uclp:peg-error
+    (match '(* 1 (error -1) 1) "a"))
+  (signals test-error
+    (match '(* 1 (error -1 test-error) 1) "a")))

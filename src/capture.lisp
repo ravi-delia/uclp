@@ -131,6 +131,41 @@
      (push-item! (aref args ,n) ,tag)
      t))
 
+(defun peg-error? (name)
+  (or (and (symbolp name)
+	   (subtypep name 'condition))
+      (stringp name)))
+
+(add-type! :error (list #'peg-error? "error message or symbol denoting condition"))
+
+(define-condition peg-error (error)
+  ((pat :initarg :pat :reader error-pat)
+   (matched :initarg :matched :reader error-matched)
+   (caps :initarg :caps :reader error-caps))
+  (:report (lambda (e s)
+	     (let ((p (error-pat e))
+		   (m (error-matched e)))
+	       (when p
+		 (when (/= (length m) 0)
+		   (format s "~s is " m))
+		 (format s "~s" p))))))
+
+(defpattern (error) (&optional (pat :pat) (err :error))
+  (with-gensyms ($matched? $capped)
+    (if (and pat (subtypep (or err 'peg-error) 'peg-error))
+	`(with-save (curr caps tags accum accum?)
+	   (setf accum? nil)
+	   (let ((,$matched? ,(compile-expr opts pat))
+		 (,$capped (cdr caps-bak)))
+	     (when ,$matched?
+	       (error ',(or err 'peg-error)
+		      :pat ',pat
+		      :matched (subseq str curr-bak curr)
+		      :caps ,$capped))
+	     (restore curr caps tags accum accum?)
+	     t))
+	`(error ',(or err 'peg-error)))))
+
 (defpattern (lenprefix) ((n-pat :pat) (r-pat :pat)) ;;Grouped in with capture because it manipulates the stack
   (with-gensyms ($matched $capped $count)
     `(with-save (accum? caps tags)

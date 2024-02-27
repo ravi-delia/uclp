@@ -68,9 +68,7 @@ compile-time and the above patterns will be availible only in a byte PEG.
 I'm not yet sure if UCLP will ever support a general ~number~ pattern. It's possible
 I'll bring in ~parse-float~ to make a ~float~ as well as a general ~number~ pattern.
 
-The following patterns from Janet are not currently implemented but will be one day:
-~column~, ~line~, and ~error~. There will need to be some changes in ~error~ due to the
-differences between Janet's error signals and Common Lisp's conditions.
+The capturing patterns ~column~ and ~line~ are not currently implemented but will be.
 
 *** Implemented
 - While UCLP does not have ~number~, it does have ~integer~, which takes identical
@@ -96,7 +94,8 @@ differences between Janet's error signals and Common Lisp's conditions.
   implementing them.
 - Because the reader doesn't distinguish between ~:s~ and ~:S~, the complement of a built-in
   pattern is prefixed with ~!~. So ~:!s~ instead of ~:S~.
-- UCLP includes any (~*~) and some (~+~) varients of complement patterns. So ~:!d+~ is
+- The ~error~ pattern has significant differences from Janet's ~error~. See *Error* below.
+- UCLP includes any (~*~) and some (~+~) variants of complement patterns. So ~:!d+~ is
   ~(some (if-not :d 1))~. See *Aliases* below
   
 ** Aliases
@@ -117,3 +116,22 @@ any varients, like so:
   (uclp:register-alias-suite! :v '(set "vV"))
   (uclp:match '(* :v (<- :!v+)) "v not a V") ; => t (" not a ")
 #+END_SRC
+
+** Error
+Because Common Lisp conditions are so different from Janet signals, the ~error~ pattern
+has some subtleties in UCLP. It takes arguments of the form ~(error &optional pat
+condition)~. With 0 arguments, it will raise a ~peg-error~. With one argument, it will
+raise an error only if ~pat~ matches. With two arguments, it will raise a ~condition~ so
+long as ~pat~ matches. To specify a particular condition a pattern must be given, but
+something like ~0~ will always match.
+
+UCLP special cases conditions inheriting from ~peg-error~, which is exported. A
+~peg-error~ has slots ~pat~, ~matched~, and ~caps~. If a pattern is given, these will
+automatically be filled by the pattern itself, the text that pattern matched, and the
+captures from the pattern respectively. If no pattern is supplied they will all be
+~nil~. These slots can be accessed with ~error-pat~, ~error-matched~, and ~caps~. By
+default ~peg-error~ has a report function giving the pattern and, if nonempty, the
+matching substring. Depending on your choice of pattern, this can be tolerably readable.
+
+#  LocalWords:  UCLP alist LocalWords subpatterns structs datatypes PEGs packrat footguns
+#  LocalWords:  SBCL performant
