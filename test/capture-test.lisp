@@ -25,6 +25,11 @@
     :match "bb" "aac"
     :fail "cc" "ab"))
 
+(test argument
+  (is-match '(* (argument 0 :a) (backmatch :a) -1) "abc" :args '("abc"))
+  (isnt-match '(* (argument 1 :a) (backmatch :a) -1) "abc" :args '("abc" "efg"))
+  (isnt-match '(* (argument 0)) "abc"))
+
 (test lenprefix
   (check-pat `'(* (lenprefix (* (integer 1 nil :b) (integer 1)) "a") (? (backref :b)))
     :match "35aaa" "31aaaa" ("30aaaa" :result '("30aaa"))

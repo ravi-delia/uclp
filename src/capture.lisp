@@ -126,7 +126,10 @@
 (defpattern (position $) (&optional (tag :tag))
   `(progn (push-item! curr ,tag) t))
 
-(defpattern (argument) ((n :reps) &optional (tag :tag))
+(add-type! :index (list (lambda (n) (and (integerp n)
+					 (>= n 0)))
+			"a non-negative integer"))
+(defpattern (argument) ((n :index) &optional (tag :tag))
   `(when (< -1 ,n (length args))
      (push-item! (aref args ,n) ,tag)
      t))
