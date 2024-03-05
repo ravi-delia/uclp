@@ -10,8 +10,8 @@
   (declare (ignore opts))
   (with-gensyms ($strc $litc)
     `(when (<= (+ curr ,(length literal)) strlen)
-       (loop for ,$strc of-type character = (char str curr)
-	     for ,$litc of-type character across ,literal
+       (loop for ,$litc of-type character across ,literal
+	     for ,$strc of-type character = (char str curr)
 	     do (if (char/= ,$strc ,$litc) (return nil))
 	        (incf curr)
 	     finally (return t)))))
