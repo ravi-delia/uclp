@@ -46,6 +46,49 @@ tested on SBCL, but I plan on at least expanding that to some other implementati
 there isn't much implementation-specific code. Except of course that for it to be
 performant it needs to be compiled quickly to a quick runtime, ideally machine code.
 
+** Usage
+The peg syntax used by UCLP is largely a 1:1 reproduction of Janet's. Differences are
+noted below, but otherwise you can safely default to using [[https://janet-lang.org/docs/peg.html][Janet's documentation]]. Many
+tasks that might require a particular function when using regex can be accomplished with
+the correct pattern. However, for convenience, there are entrypoints for a few common
+usecases. *NOTE:* Currently compiled pegs can only be used in ~match~. This will be fixed
+in an upcoming version.
+
+*** ~(match rule str &optional start &rest args)~
+This is the primary entrypoint to UCLP. Matches ~str~ against ~rule~ anchored to ~start~.
+Returns two values on success, a boolean indicating success or failure and a list of
+captures, and nil otherwise. Additional arguments are accessable while matching using the
+~argument~ pattern. Note that if using additional arguments you must specify a ~start~.
+
+*** ~(captured rule str &optional start &rest args)~
+Takes exactly the same arguments as ~match~ but returns in the opposite order- first the
+list of captures, and success as the second value. Useful to get at captures without
+~multiple-value-bind~.
+
+*** ~(replace-all rule replace str &optional start &rest args)~
+Returns the string resulting from replacing every instance of ~rule~ in ~str~ with
+~replace~, which may be a string to substitute or a function taking as an argument the
+substring matched by ~rule~. Returns a boolean indicating if matches were found as a
+second value.
+
+*** ~(replace-one rule replace str &optional start &rest args)~
+Behaves like ~replace-all~, but replaces only the first match.
+
+*** ~(find-all rule str &optional start &rest args)~
+Gives the position of each match in ~str~ as a list, such that
+#+BEGIN_SRC lisp
+  (defparameter dig '(* "dig:" :d))
+  (defparameter str "dig:7, dig:8, dig:9")
+
+  (every (lambda (position)
+           (uclp:match dig str position))
+         (uclp:find-all dig str)) ; => t
+#+END_SRC
+
+
+***  ~(find-all rule str &optional start &rest args)~
+Returns the position of the /first/ match, or ~nil~ if there are no matches.
+
 ** Differences From Janet
 Mostly UCLP adheres to the behavior of Janet pegs, enough so that Janet's documentation is
 better than anything I'll have put together for a little while. However, there are some

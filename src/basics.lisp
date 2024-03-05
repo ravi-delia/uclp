@@ -8,14 +8,13 @@
 
 (defun compile-literal (opts literal)
   (declare (ignore opts))
-  (with-gensyms ($strc $litc $i)
+  (with-gensyms ($strc $litc)
     `(when (<= (+ curr ,(length literal)) strlen)
-       (loop for ,$i of-type fixnum from curr below (+ curr ,(length literal))
-	     for ,$strc of-type character = (char str ,$i)
+       (loop for ,$strc of-type character = (char str curr)
 	     for ,$litc of-type character across ,literal
-	     if (not (char= ,$litc ,$strc)) do
-		(return nil)
-	     finally (setf curr ,$i) (return t)))))
+	     do (if (char/= ,$strc ,$litc) (return nil))
+	        (incf curr)
+	     finally (return t)))))
 (defun compile-count (opts count)
   (declare (ignore opts))
   (if (< count 0)
@@ -39,7 +38,7 @@
 (defpattern (set) ((set :string))
   (with-gensyms ($strc $setc)
     (let ((set (from-strform set)))
-      `(if (= curr strlen)
+      `(if (>= curr strlen)
 	   nil
 	   (let ((,$strc (char str curr)))
 	     ,(if (< (length set) 8)
