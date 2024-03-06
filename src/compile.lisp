@@ -205,6 +205,7 @@ you shouldn't capture either"
 
 (defun compile-expr (opts expr)
   (cond
+    ((functionp expr) `(funcall ,expr state))
     ((strform? expr) (compile-literal opts (from-strform expr)))
     ((keywordp expr) (or (if (env-lookup (compopts-env opts) expr)
 			     (list (prefsym (compopts-prefix opts) expr)))
