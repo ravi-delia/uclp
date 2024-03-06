@@ -148,31 +148,40 @@ you shouldn't capture either"
 (defun copts (prefix env)
   (make-compopts :prefix prefix :env env))
 
+(defun print-peg-state (state stream depth)
+  (declare (ignore depth state))
+  (print "peg state" stream))
+(defstruct (peg-state (:print-function print-peg-state))
+  (str "" :type simple-string)
+  (curr 0 :type fixnum)
+  (args #() :type vector)
+  (strlen 0 :type fixnum)
+  (caps nil :type queue)
+  (accum "" :type accum)
+  (tags #() :type tstack)
+  (accum? nil :type boolean))
+(defun initialize-peg-state (str curr args)
+  (make-peg-state
+   :str str
+   :curr curr
+   :args args
+   :strlen (length str)
+   :caps (make-queue)
+   :accum (make-accum)
+   :tags (make-tstack)
+   :accum? nil))
+
 (defun compile-toplevel (expr &key (quiet? t) debug?)
-  `(lambda (str curr args)
+  `(lambda (state)
      (declare ,@(list-if
 		 quiet?
 		 '(sb-ext:muffle-conditions sb-ext:compiler-note))
 	      (optimize ,@(if debug?
 			      '((speed 0))
 			      '((debug 0) (speed 3))))
-			      
-	      (ignorable str curr args)
-	      (dynamic-extent curr)
-	      (fixnum curr)
-	      (simple-string str)
-	      (vector args))
-     (let ((strlen (length str)) ; Modifiable for use in SUB
-	   (caps (make-queue))
-	   (tags (make-tstack))
-	   (accum (make-accum))
-	   (accum? nil))
-       (declare (ignorable strlen caps tags accum accum?)
-		(dynamic-extent accum? strlen)
-		(fixnum strlen)
-		(tstack tags)
-		(accum accum)
-		(boolean accum?))
+	      (peg-state state))
+     (with-slots (str curr args strlen caps tags accum accum?) state
+       (declare (ignorable str curr args strlen caps tags accum accum?))
        (if ,(compile-expr (make-compopts) expr)
 	   (values t (qitems caps))
 	   nil))))

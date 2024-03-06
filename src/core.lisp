@@ -2,9 +2,12 @@
 
 (defun match (rule str &optional (start 0) &rest args)
   (funcall (if (functionp rule) rule (compile-peg rule))
-	   str start (loop with out = (make-array 0 :fill-pointer t :adjustable t)
-			   for a in args do (vector-push-extend a out)
-			   finally (return out))))
+	   (initialize-peg-state
+	    str
+	    start
+	    (loop with out = (make-array 0 :fill-pointer t :adjustable t)
+		  for a in args do (vector-push-extend a out)
+		  finally (return out)))))
 (defun captured (rule str &optional (start 0) &rest args)
   (multiple-value-bind (matched? caps) (apply #'match rule str start args)
     (values caps matched?)))
