@@ -167,8 +167,9 @@ any variants, like so:
 
 ** Error
 Because Common Lisp conditions are so different from Janet signals, the ~error~ pattern
-has some subtleties in UCLP. It takes arguments of the form ~(error &optional pat
-condition)~. With 0 arguments, it will raise a ~peg-error~. With one argument, it will
+has some subtleties in UCLP. It takes arguments of the form
+~(error &optional pat condition)~. 
+With 0 arguments, it will raise a ~peg-error~. With one argument, it will
 raise an error only if ~pat~ matches. With two arguments, it will raise a ~condition~ so
 long as ~pat~ matches. To specify a particular condition a pattern must be given, but
 something like ~0~ will always match.
