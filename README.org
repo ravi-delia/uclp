@@ -51,14 +51,19 @@ The peg syntax used by UCLP is largely a 1:1 reproduction of Janet's. Difference
 noted below, but otherwise you can safely default to using [[https://janet-lang.org/docs/peg.html][Janet's documentation]]. Many
 tasks that might require a particular function when using regex can be accomplished with
 the correct pattern. However, for convenience, there are entrypoints for a few common
-usecases. *NOTE:* Currently compiled pegs can only be used in ~match~. This will be fixed
-in an upcoming version.
+usecases. 
 
 *** ~(match rule str &optional start &rest args)~
 This is the primary entrypoint to UCLP. Matches ~str~ against ~rule~ anchored to ~start~.
 Returns two values on success, a boolean indicating success or failure and a list of
 captures, and nil otherwise. Additional arguments are accessable while matching using the
 ~argument~ pattern. Note that if using additional arguments you must specify a ~start~.
+
+*** ~(compile-peg rule &key (quiet? t) debug?)~
+Compiles ~rule~ to source ahead of time. Even with SBCL's lightning quick compilation this
+can still save a significant amount of time, and for many rules almost all the
+consing. The result is just a closure, and it can be used in other patterns by including
+it literally. Does not promise to be nice if used outside its wrapper.
 
 *** ~(captured rule str &optional start &rest args)~
 Takes exactly the same arguments as ~match~ but returns in the opposite order- first the

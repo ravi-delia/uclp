@@ -1,5 +1,5 @@
 (defsystem :uclp
-  :version "0.1.2"
+  :version "0.1.3"
   :author "Ravi D'Elia"
   :license "MIT"
   :depends-on (:alexandria :serapeum :trivia)
