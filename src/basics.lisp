@@ -161,3 +161,33 @@
 	   (let ((,$matched ,(compile-expr opts sub-pat)))
 	     (restore strlen)
 	     ,$matched))))))
+
+(defpattern (split) ((div :pat) (inside :pat))
+  (with-gensyms ($init-curr $after-curr $cont? $matched? $ret $fill)
+    `(let ((,$init-curr 0)
+	   (,$after-curr 0)
+	   (,$ret nil)
+	   (,$cont? nil)
+	   (strlen-bak strlen)
+	   (curr-bak curr))
+       (declare (fixnum ,$init-curr ,$after-curr strlen-bak curr-bak)
+		(boolean ,$ret ,$cont?))
+       (tagbody
+	  ,$fill
+	  (setf curr-bak curr)
+	  (setf ,$init-curr curr)
+	  (loop until (setf ,$cont? ,(compile-expr opts `(drop ,div)))
+		while (< curr strlen) do
+		   (incf curr)
+		   (incf ,$init-curr)
+		finally
+		   (setf strlen ,$init-curr)
+		   (setf ,$after-curr curr)
+		   (setf curr curr-bak))
+	  (when-let ((,$matched? ,(compile-expr opts inside)))
+	    (setf curr ,$after-curr)
+	    (setf strlen strlen-bak)
+	    (when ,$cont?
+	      (go ,$fill))
+	    (setf ,$ret t)))
+       ,$ret)))

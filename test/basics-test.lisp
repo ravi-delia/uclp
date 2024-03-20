@@ -66,3 +66,45 @@
   (check-pat `(* (sub (<- 2 :b) (* (any "b") -1)) (backmatch :b))
     :match "bbbb" "bbbbc"
     :fail "bbb" "" "1" "bbcc"))
+
+;; As of now (2024-03-20) the SPLIT pattern is not in the latest release of Janet,
+;; but is in the current repo. The desired behavior doesn't seem to be documented
+;; anywhere, but my faith in the design goals of Ian Henry far outstrips my faith
+;; in my own. So I am trying to mimic the behavior of Janet's SPLIT as closely as
+;; as possible. These tests are copied verbatim from Janet's test suite.
+
+(test split
+  ; basic functionality
+  (is-match '(split "," '1) "a,b,c" 
+	    :result '("a" "b" "c")) 
+
+  ; drops captures from separator pattern
+  (is-match '(split '"," '1) "a,b,c" 
+	    :result '("a" "b" "c")) 
+
+  ; can match empty subpatterns
+  (is-match '(split "," ':w*) ",a,,bar,,,c,," 
+	    :result '("" "a" "" "bar" "" "" "c" "" "")) 
+
+  ; subpattern is limited to only text before the separator
+  (is-match '(split "," '(to -1)) "a,,bar,c" 
+	    :result '("a" "" "bar" "c")) 
+
+  ; fails if any subpattern fails
+  (isnt-match '(split "," '"a") "a,a,b") 
+
+  ; separator does not have to match anything
+  (is-match '(split "x" '(to -1)) "a,a,b" 
+	    :result '("a,a,b")) 
+
+  ; always consumes entire input
+  (is-match '(split 1 '"") "abc" 
+	    :result '("" "" "" "")) 
+
+  ; separator can be an arbitrary PEG
+  (is-match '(split :s+ '(to -1)) "a   b      c" 
+	    :result '("a" "b" "c")) 
+
+  ; does not advance past the end of the input
+  (is-match '(* (split "," ':w+) 0) "a,b,c" 
+	    :result '("a" "b" "c")))

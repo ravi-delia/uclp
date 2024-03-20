@@ -125,6 +125,20 @@ The capturing patterns ~column~ and ~line~ are not currently implemented but wil
   /within the length/ of whatever ~super-pat~ matched. While matching ~sub-pat~ it is
   exactly as though the input string ends where ~super-pat~ stops. This actually is in
   Janet, but isn't on the documentation page so the difference is noted here.
+- The pattern ~(split div-pat fill-pat)~ was contributed to Janet but not yet released.
+  To a first approximation it behaves like so:
+  #+BEGIN_SRC lisp
+    (grammar
+     :pair (* (drop div-pat) fill-pat)
+     :main (* fill-pat (any :pair)))
+  #+END_SRC
+  So it will match when ~fill-pat~ matches each segment of the input when divided by
+  ~div-pat~. However, it is a little more complicated than that. For one, ~split~ always
+  matches against the entire input. If you don't want that, you need to use a ~sub~
+  pattern to contain it. This means that something like ~(match '(split "," 1) "a,b,c,")~
+  will not match! Additionally, ~fill-pat~ is implicitly matched in a ~sub~- so if you
+  want to match everything between your seperators, you can use a pattern like
+  ~(split "," (any 1))~. 
 
 *** Changes
 - Anywhere a string literal can go, including those in ~range~ or ~set~, a character or
