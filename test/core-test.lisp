@@ -5,8 +5,8 @@
 ;; Built ints are in core for now
 
 (test build-ins
-  (check-pat '(* :d :h :!d :s :!s :w+ -1)
-    :match "11a *l23ghS" "1aa d44Gg"
+  (check-pat '(* :d :h :d? :!d :s :!s :w+ -1)
+    :match "111a *l23ghS" "1aa d44Gg"
     :fail "1aaaaa" "1ad X wef " "aaaaa"))
 
 (test user-aliases

@@ -127,12 +127,15 @@ you shouldn't capture either"
 	 (!sn+ (concatenate 'string !sn "+"))
 	 (sn* (concatenate 'string sn "*"))
 	 (!sn* (concatenate 'string !sn "*"))
+	 (sn? (concatenate 'string sn "?"))
+	 (!sn? (concatenate 'string !sn "?"))
 	 (!pattern `(if-not ,pattern 1)))
     (mapcar #'register-alias!
-	    (mapcar #'to-keyword (list sn !sn sn+ !sn+ sn* !sn*))
+	    (mapcar #'to-keyword (list sn !sn sn+ !sn+ sn* !sn* sn? !sn?))
 	    (list pattern !pattern
 		  `(some ,pattern) `(some ,!pattern)
-		  `(any ,pattern) `(any ,!pattern)))))
+		  `(any ,pattern) `(any ,!pattern)
+		  `(? ,pattern) `(? ,!pattern)))))
 
 (defparameter *base-aliases*
   '(:d (range "09")
@@ -211,7 +214,7 @@ you shouldn't capture either"
 			     (list (prefsym (compopts-prefix opts) expr)))
 			 (if-let ((assoced (assoc expr *aliases*)))
 			   (compile-expr opts (cdr assoced))) 
-			 (error 'undefined-rule :rule-name expr)))
+			 (error 'undefined-rule :name expr)))
     ((integerp expr) (compile-count opts expr))
     ((listp expr) (if-let ((pattern (gethash (to-keyword (first expr)) *patterns*)))
 		    (and (verify-args! (pattern-spec pattern) expr)
