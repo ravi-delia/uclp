@@ -91,7 +91,7 @@ Gives the position of each match in ~str~ as a list, such that
 #+END_SRC
 
 
-***  ~(find-all rule str &optional start &rest args)~
+***  ~(find-one rule str &optional start &rest args)~
 Returns the position of the /first/ match, or ~nil~ if there are no matches.
 
 ** Differences From Janet
