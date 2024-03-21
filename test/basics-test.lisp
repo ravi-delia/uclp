@@ -65,7 +65,9 @@
 (test sub
   (check-pat `(* (sub (<- 2 :b) (* (any "b") -1)) (backmatch :b))
     :match "bbbb" "bbbbc"
-    :fail "bbb" "" "1" "bbcc"))
+    :fail "bbb" "" "1" "bbcc")
+  ; After matching sub-pat, advance to end of super-pat
+  (is-match '(* (sub 3 '1) "b") "aaab")) 
 
 ;; As of now (2024-03-20) the SPLIT pattern is not in the latest release of Janet,
 ;; but is in the current repo. The desired behavior doesn't seem to be documented
