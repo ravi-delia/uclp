@@ -116,8 +116,6 @@ compile-time and the above patterns will likely be available only in a byte PEG.
 I'm not yet sure if UCLP will ever support a general ~number~ pattern. It's possible
 I'll bring in ~parse-float~ to make a ~float~ as well as a general ~number~ pattern.
 
-The capturing patterns ~column~ and ~line~ are not currently implemented but will be.
-
 *** Implemented
 - While UCLP does not have ~number~, it does have ~integer~, which takes identical
   arguments and parses an integer using ~parse-integer~.
