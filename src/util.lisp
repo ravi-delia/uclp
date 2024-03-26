@@ -1,5 +1,7 @@
 (in-package :uclp)
 
+(deftype index () `(integer 0 ,(+ array-dimension-limit 2)))
+
 ;; Semi-Norvig Queues: We need to implement the capture stack as a queue, but we will
 ;; never actually need to dequeue! So we can make optimizations which are otherwise
 ;; impossible.
@@ -124,6 +126,32 @@
     ((null (cdr list)) (list list))
     (t (destructuring-bind (a b &rest rest) list
 	 (cons (list a b) (pairs rest))))))
+
+;; Lines
+(deftype line-map () '(and (vector index *) (not (vector t 0))))
+(dec-inlines
+ (search-line (line-map index) (values index index))
+ (build-linemap! (line-map string) NULL))
+
+(defun search-line (line-map curr)
+  (labels ((iter (left right)
+	     (if (= left right)
+		 (values (1+ left) (1+ (- curr (aref line-map left))))
+		 (let* ((mid (ash (+ left right) -1))
+			(midval (aref line-map mid)))
+		   (cond
+		     ((= midval curr) (values (1+ mid) 1))
+		     ((= left mid) (values (1+ mid) (1+ (- curr midval))))
+		     ((< midval curr) (iter mid right))
+		     (t (iter left mid)))))))
+    (declare (ftype (function (index (and index (integer 1))) (values index index)) iter)
+	     (dynamic-extent (function iter)))
+    (iter 0 (length line-map))))
+
+(defun build-linemap! (lmap str)
+  (loop for c across str
+	for i from 0
+	do (when (char= c #\Newline) (vector-push-extend (1+ i) lmap))))
 
 (define-condition generic-error (error)
   ((msg :initarg :msg :reader error-msg))

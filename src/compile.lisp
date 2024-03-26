@@ -162,7 +162,10 @@ you shouldn't capture either"
   (caps nil :type queue)
   (accum "" :type accum)
   (tags #() :type tstack)
-  (accum? nil :type boolean))
+  (accum? nil :type boolean)
+  (line-map? nil :type boolean)
+  (line-to 0 :type index)
+  (line-map nil :type line-map))
 (defun initialize-peg-state (str curr args)
   (make-peg-state
    :str str
@@ -172,7 +175,9 @@ you shouldn't capture either"
    :caps (make-queue)
    :accum (make-accum)
    :tags (make-tstack)
-   :accum? nil))
+   :accum? nil
+   :line-map? nil
+   :line-map (make-array 1 :element-type 'index :adjustable t :fill-pointer t)))
 
 (defun compile-toplevel (expr &key (quiet? t) debug?)
   `(lambda (state)
@@ -183,8 +188,8 @@ you shouldn't capture either"
 			      '((speed 0))
 			      '((debug 0) (speed 3))))
 	      (peg-state state))
-     (with-slots (str curr args strlen caps tags accum accum?) state
-       (declare (ignorable str curr args strlen caps tags accum accum?))
+     (with-slots (str curr args strlen caps tags accum accum? line-map? line-map) state
+       (declare (ignorable str curr args strlen caps tags accum accum? line-map line-map?))
        (if ,(compile-expr (make-compopts) expr)
 	   (values t (qitems caps))
 	   nil))))

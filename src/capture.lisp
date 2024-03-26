@@ -125,6 +125,20 @@
 
 (defpattern (position $) (&optional (tag :tag))
   `(progn (push-item! curr ,tag) t))
+(defun compile-linecol (line-or-col tag)
+  (with-gensyms ($line $col)
+    `(progn
+       (unless line-map?
+	 (build-linemap! line-map str)
+	 (setf line-map? t))
+       (multiple-value-bind (,$line ,$col) (search-line line-map curr)
+	 (declare (ignorable ,$line ,$col))
+	 (push-item! ,(if (eq line-or-col :line) $line $col) ,tag))
+       t)))
+(defpattern (line) (&optional (tag :tag))
+  (compile-linecol :line tag))
+(defpattern (column) (&optional (tag :tag))
+  (compile-linecol :col tag))
 
 (add-type! :index (list (lambda (n) (and (integerp n)
 					 (>= n 0)))
