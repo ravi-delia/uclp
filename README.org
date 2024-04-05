@@ -124,13 +124,7 @@ I'll bring in ~parse-float~ to make a ~float~ as well as a general ~number~ patt
   exactly as though the input string ends where ~super-pat~ stops. This actually is in
   Janet, but isn't on the documentation page so the difference is noted here.
 - The pattern ~(split div-pat fill-pat)~ was contributed to Janet but not yet released.
-  To a first approximation it behaves like so:
-  #+BEGIN_SRC lisp
-    (grammar
-     :pair (* (drop div-pat) fill-pat)
-     :main (* fill-pat (any :pair)))
-  #+END_SRC
-  So it will match when ~fill-pat~ matches each segment of the input when divided by
+  It will match when ~fill-pat~ matches each segment of the input when divided by
   ~div-pat~. However, it is a little more complicated than that. For one, ~split~ always
   matches against the entire input. If you don't want that, you need to use a ~sub~
   pattern to contain it. This means that something like ~(match '(split "," 1) "a,b,c,")~
