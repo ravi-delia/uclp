@@ -180,10 +180,9 @@ you shouldn't capture either"
    :line-map (make-array 1 :element-type 'index :adjustable t :fill-pointer t)))
 
 (defun compile-toplevel (expr &key (quiet? t) debug?)
+  (let ((muffler #+sbcl '(sb-ext:muffle-conditions sb-ext:compiler-note) #-sbcl nil))
   `(lambda (state)
-     (declare ,@(list-if
-		 quiet?
-		 '(sb-ext:muffle-conditions sb-ext:compiler-note))
+     (declare ,@(list-if quiet? muffler)
 	      (optimize ,@(if debug?
 			      '((speed 0))
 			      '((debug 0) (speed 3))))
@@ -192,7 +191,7 @@ you shouldn't capture either"
        (declare (ignorable str curr args strlen caps tags accum accum? line-map line-map?))
        (if ,(compile-expr (make-compopts) expr)
 	   (values t (qitems caps))
-	   nil))))
+	   nil)))))
 
 (defun env-lookup (env name)
   (when env
