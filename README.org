@@ -119,10 +119,6 @@ I'll bring in ~parse-float~ to make a ~float~ as well as a general ~number~ patt
 *** Implemented
 - While UCLP does not have ~number~, it does have ~integer~, which takes identical
   arguments and parses an integer using ~parse-integer~.
-- The pattern ~(sub super-pat sub-pat)~ first matches ~super-pat~, then matches ~sub-pat~
-  /within the length/ of whatever ~super-pat~ matched. While matching ~sub-pat~ it is
-  exactly as though the input string ends where ~super-pat~ stops. This actually is in
-  Janet, but isn't on the documentation page so the difference is noted here.
 - The pattern ~(split div-pat fill-pat)~ was contributed to Janet but not yet released.
   It will match when ~fill-pat~ matches each segment of the input when divided by
   ~div-pat~. However, it is a little more complicated than that. For one, ~split~ always
