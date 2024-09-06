@@ -126,8 +126,17 @@ I'll bring in ~parse-float~ to make a ~float~ as well as a general ~number~ patt
   pattern to contain it. This means that something like ~(match '(split "," 1) "a,b,c,")~
   will not match! Additionally, ~fill-pat~ is implicitly matched in a ~sub~- so if you
   want to match everything between your seperators, you can use a pattern like
-  ~(split "," (any 1))~. 
-
+  ~(split "," (any 1))~. Look at the test cases for examples here.
+- The pattern ~(split div-pat fill-pat)~ was contributed to Janet but not yet released.
+  It matches if the input string consists of instances of ~fill-pat~ split apart by
+  ~div-pat~. Look at the test cases to get a finer idea of the details, but it is
+  equivalent to the following pattern:
+  #+BEGIN_SRC lisp
+    `(grammar
+      :mid (sub (to (+ ,div-pat -1)) ,fill-pat) ; fill-pat matches up to the next div 
+      :main (* :mid (any (* (drop ,div-pat) :mid)) -1)) 
+  #+END_SRC
+  
 *** Changes
 - Anywhere a string literal can go, including those in ~range~ or ~set~, a character or
   list of characters and strings can also go. This is because Common Lisp strings do not have
