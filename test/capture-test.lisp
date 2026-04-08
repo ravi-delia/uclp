@@ -3,13 +3,13 @@
 (def-suite capture :in uclp)
 (in-suite capture)
 
-(test nested-accum
+(asm-test nested-accum
   (check-pat `(% (* (+ (% (* '"a" '"b"))
 		       (/ (% (* '"c" '"d")) ,#'string-upcase))
 		    '"ef"))
     :match ("abef" :result '("abef")) ("cdef" :result '("CDef"))))
 
-(test backref
+(asm-test backref
   (check-pat `(grammar
 	       :pad (any "=")
 	       :open (* "[" (<- :pad :n) "[")
@@ -25,20 +25,24 @@
     :match "bb" "aac"
     :fail "cc" "ab"))
 
-(test argument
+(asm-test argument
   (is-match '(* (argument 0 :a) (backmatch :a) -1) "abc" :args '("abc"))
   (isnt-match '(* (argument 1 :a) (backmatch :a) -1) "abc" :args '("abc" "efg"))
   (isnt-match '(* (argument 0)) "abc"))
 
-(test lenprefix
+(asm-test lenprefix
   (check-pat `'(* (lenprefix (* (integer 1 nil :b) (integer 1)) "a") (? (backref :b)))
     :match "35aaa" "31aaaa" ("30aaaa" :result '("30aaa"))
     :fail "33aa" "3aab" "33ab" "v2aaa"))
 
 (define-condition test-error (peg-error) ())
-(test error
+(asm-test error
   (is-match '(* 1 (error -1) 1) "ab")
   (signals uclp:peg-error
-    (match '(* 1 (error -1) 1) "a"))
+    (match (compile-peg '(* 1 (error -1) 1)) "a"))
   (signals test-error
-    (match '(* 1 (error -1 test-error) 1) "a")))
+    (match (compile-peg '(* 1 (error -1 test-error) 1)) "a")))
+
+(asm-test integer
+  (check-pat '(integer 2)
+    :match ("10" :result '(10)) ("1010" :result '(10))))

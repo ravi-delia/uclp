@@ -91,10 +91,10 @@ grammar-error"
 	   (:&rest (verify-rest! spec expr reqarity))))
     (verify-positionals! spec expr)))
 
-(defstruct (pattern) name spec compile-fn)
+(defstruct (pattern) name spec compile-fn closure-fn)
 (defvar *patterns* (make-hash-table :test 'eq))
 
-(defmacro defpattern ((name &rest aliases) spec &body body)
+(defmacro defpattern ((name &rest aliases) spec compile-body &optional closure-body)
   "Bind pattern with name and aliases whose arguments obey SPEC.
 In BODY, OPTS is anaphorically bound"
   (let ((destruct (mapcar (lambda (o) (if (listp o) (first o) o)) spec))
@@ -109,47 +109,55 @@ In BODY, OPTS is anaphorically bound"
 		     (lambda (opts ,$expr)
 		       (declare (ignorable opts))
 		       (destructuring-bind ,destruct (rest ,$expr)
-			 ,@body)))))
+			 ,compile-body))
+		     :closure-fn
+		     ,(when closure-body
+			`(lambda (opts ,$expr)
+			   (declare (ignorable opts))
+			   (destructuring-bind ,destruct (rest ,$expr)
+			     ,closure-body))))))
 	 (loop for ,$n in ',(cons name aliases)
 	       do (setf (gethash (to-keyword ,$n) *patterns*) ,$pat))))))
 
 (defparameter *aliases* nil)
-(defun register-alias! (alias pattern)
-  "Does not check pattern, but DO NOT put a recursive pattern. Probably
-you shouldn't capture either"
-  (unless (null pattern)
-    (push (cons alias pattern) *aliases*)))
-(defun register-alias-suite! (alias pattern)
-  "Adds pattern under alias, but also !alias, alias*, alias+, !alias*, !alias+"
-  (let* ((sn (symbol-name alias))
-	 (!sn (concatenate 'string "!" sn))
-	 (sn+ (concatenate 'string sn "+"))
-	 (!sn+ (concatenate 'string !sn "+"))
-	 (sn* (concatenate 'string sn "*"))
-	 (!sn* (concatenate 'string !sn "*"))
-	 (sn? (concatenate 'string sn "?"))
-	 (!sn? (concatenate 'string !sn "?"))
-	 (!pattern `(if-not ,pattern 1)))
-    (mapcar #'register-alias!
-	    (mapcar #'to-keyword (list sn !sn sn+ !sn+ sn* !sn* sn? !sn?))
-	    (list pattern !pattern
-		  `(some ,pattern) `(some ,!pattern)
-		  `(any ,pattern) `(any ,!pattern)
-		  `(? ,pattern) `(? ,!pattern)))))
 
-(defparameter *base-aliases*
-  '(:d (range "09")
-    :a (range "az" "AZ")
-    :w (range "az" "AZ" "09")
-    :s (set (#\tab #\return #\newline #\null #\page #\vt #\space))
-    :h (range "09" "af" "AF")))
+(defstruct (compopts) prefix env holes)
+(defun copts ()
+  (make-compopts :prefix (gensym)
+		 :env nil
+		 :holes (make-array 0 :element-type 'keyword :adjustable t :fill-pointer t)))
+(defstruct (asmopts (:include compopts)) all-patterns hole-args)
+(defun aopts ()
+  (make-asmopts :prefix (gensym)
+		:env nil
+		:holes (make-array 0 :element-type 'keyword :adjustable t :fill-pointer t)
+		:all-patterns (make-array 0 :element-type 'function :adjustable t :fill-pointer t)
+		:hole-args (make-array 0 :element-type 'function :adjustable t :fill-pointer t)))
 
-(mapcar (lambda (pair) (register-alias-suite! (first pair) (second pair)))
-	(pairs *base-aliases*))
+(defun env-lookup (env name)
+  (when env
+    (or (cadr (find name (first env) :key #'first))
+	(env-lookup (rest env) name))))
+(defun push-env-scope (opts)
+  (push (list) (compopts-env opts)))
+(defun push-env-binding (opts name call-code)
+  (let ((top-scope (pop (compopts-env opts))))
+    (push `(,name ,call-code) top-scope)
+    (push top-scope (compopts-env opts))))
+(defun push-simple-names (opts names)
+  (push-env-scope opts)
+  (let ((prefix (compopts-prefix opts)))
+    (loop for name in names
+	  do (push-env-binding opts name `(,(prefsym prefix name))))))
 
-(defstruct (compopts) prefix env)
-(defun copts (prefix env)
-  (make-compopts :prefix prefix :env env))
+(defun get-hole-idx! (opts name)
+  (let* ((holes (compopts-holes opts)))
+    (or (position name holes)
+	(vector-push-extend name holes))))
+
+(defstruct (pat) fn peg-src)
+(defstruct (frame) hole-names frame-fn peg-src)
+(defstruct (closure-peg) fn src)
 
 (defun print-peg-state (state stream depth)
   (declare (ignore depth state))
@@ -179,24 +187,45 @@ you shouldn't capture either"
    :line-map? nil
    :line-map (make-array 1 :element-type 'index :adjustable t :fill-pointer t)))
 
-(defun compile-toplevel (expr &key (quiet? t) debug?)
+(deftype compiled-pattern () '(function (peg-state) boolean))
+(deftype hole-args () '(simple-array compiled-pattern))
+
+(defun top-declaration (quiet? debug? &rest items)
   (let ((muffler #+sbcl '(sb-ext:muffle-conditions sb-ext:compiler-note) #-sbcl nil))
-  `(lambda (state)
-     (declare ,@(list-if quiet? muffler)
+    `(declare ,@(list-if quiet? muffler)
 	      (optimize ,@(if debug?
 			      '((speed 0))
 			      '((debug 0) (speed 3))))
-	      (peg-state state))
+	      ,@items)))
+
+(defun wrap-pattern-lambda (compiled quiet? debug?)
+  `(lambda (state)
+     ,(top-declaration quiet? debug? '(type peg-state state))
      (with-slots (str curr args strlen caps tags accum accum? line-map? line-map) state
        (declare (ignorable str curr args strlen caps tags accum accum? line-map line-map?))
-       (if ,(compile-expr (make-compopts) expr)
+       (if ,compiled
 	   (values t (qitems caps))
-	   nil)))))
+	   nil))))
 
-(defun env-lookup (env name)
-  (when env
-    (or (find name (first env))
-	(env-lookup (rest env) name))))
+(defun wrap-frame-closure (compiled opts quiet? debug?)
+  (let (($holeargs (prefsym (compopts-prefix opts) 'hole-args)))
+    `(lambda (,$holeargs)
+       ,(top-declaration quiet? debug? `(type hole-args ,$holeargs))
+       ,(wrap-pattern-lambda compiled quiet? debug?))))
+
+(defun compile-toplevel (expr &key (quiet? t) debug?)
+  (unless expr
+    (error "Nil is not a valid PEG"))
+  (let* ((opts (copts))
+	 (result (compile-expr opts expr)))
+    (if (length= (compopts-holes opts) 0)
+	(make-pat
+	 :fn (compile nil (wrap-pattern-lambda result quiet? debug?))
+	 :peg-src expr)
+	(make-frame
+	 :hole-names (compopts-holes opts)
+	 :peg-src expr
+	 :frame-fn (compile nil (wrap-frame-closure result opts quiet? debug?))))))
 
 (define-condition unknown-pattern (error)
   ((name :initarg :name :reader ukpat-name))
@@ -212,15 +241,77 @@ you shouldn't capture either"
 
 (defun compile-expr (opts expr)
   (cond
-    ((functionp expr) `(funcall ,expr state))
+    ((pat-p expr) `(funcall ,(pat-fn expr) state))
     ((strform? expr) (compile-literal opts (from-strform expr)))
-    ((keywordp expr) (or (if (env-lookup (compopts-env opts) expr)
-			     (list (prefsym (compopts-prefix opts) expr)))
+    ((keywordp expr) (or (env-lookup (compopts-env opts) expr)
 			 (if-let ((assoced (assoc expr *aliases*)))
-			   (compile-expr opts (cdr assoced))) 
+			   (compile-expr opts (cadr assoced)))
 			 (error 'undefined-rule :name expr)))
     ((integerp expr) (compile-count opts expr))
     ((listp expr) (if-let ((pattern (gethash (to-keyword (first expr)) *patterns*)))
 		    (and (verify-args! (pattern-spec pattern) expr)
 			 (funcall (pattern-compile-fn pattern) opts expr))
 		    (error 'unknown-pattern :name (first expr))))))
+
+(defmacro pat-lambda (slots &body body)
+  `(lambda (state)
+     (declare (type peg-state state))
+     (with-slots ,slots state ,@body)))
+
+(defun assemble-expr (opts expr)
+  (cond
+    ; If we get an existing pat we unwrap it. This loses source info, which will be fixed later
+    ((pat-p expr) (pat-fn expr)) 
+    ((strform? expr) (assemble-literal opts (from-strform expr)))
+    ((keywordp expr) (or (env-lookup (asmopts-env opts) expr)
+			 (if-let (assoced (assoc expr *aliases*))
+			   (pat-fn (caddr assoced)))
+			 (error 'undefined-rule :name expr)))
+    ((integerp expr) (assemble-count opts expr))
+    ((listp expr) (if-let ((pattern (gethash (to-keyword (first expr)) *patterns*)))
+		    (and (verify-args! (pattern-spec pattern) expr)
+			 (if-let ((assembler (pattern-closure-fn pattern)))
+			   (funcall assembler opts expr)
+			   (error (format nil "~s is not implemented" (first expr)))))))))
+
+(defun assemble-toplevel (expr &key (quiet? t) debug?)
+  (declare (ignore quiet? debug?))
+  (unless expr
+    (error "Nil is not a valid PEG"))
+  (let* ((opts (aopts))
+	 (result (assemble-expr opts expr)))
+    (if (length= (asmopts-holes opts) 0)
+	(make-pat
+	 :fn (pat-lambda (caps) (when (funcall result state) (values t (qitems caps))))
+	 :peg-src expr)
+	(make-frame
+	 :hole-names (asmopts-holes opts)
+	 :frame-fn (lambda (args)
+		     (loop for arg across args
+			   do (vector-push-extend arg (asmopts-hole-args opts)))
+		     result)
+	 :peg-src expr))))
+
+(defun register-alias! (alias pattern)
+  "Does not check pattern, but DO NOT put a recursive pattern. Probably
+you shouldn't capture either"
+  (unless (null pattern)
+    (push (list alias pattern (compile-toplevel pattern)) *aliases*)))
+(defun register-alias-suite! (alias pattern)
+  "Adds pattern under alias, but also !alias, alias*, alias+, !alias*, !alias+"
+  (let* ((sn (symbol-name alias))
+	 (!sn (concatenate 'string "!" sn))
+	 (sn+ (concatenate 'string sn "+"))
+	 (!sn+ (concatenate 'string !sn "+"))
+	 (sn* (concatenate 'string sn "*"))
+	 (!sn* (concatenate 'string !sn "*"))
+	 (sn? (concatenate 'string sn "?"))
+	 (!sn? (concatenate 'string !sn "?"))
+	 (!pattern `(if-not ,pattern 1)))
+    (mapcar #'register-alias!
+	    (mapcar #'to-keyword (list sn !sn sn+ !sn+ sn* !sn* sn? !sn?))
+	    (list pattern !pattern
+		  `(some ,pattern) `(some ,!pattern)
+		  `(any ,pattern) `(any ,!pattern)
+		  `(? ,pattern) `(? ,!pattern)))))
+

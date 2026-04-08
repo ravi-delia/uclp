@@ -1,45 +1,74 @@
 (in-package :uclp)
 
+;; Aliases are kind of a part of the public interface
+;; but mostly this is because they need all my patterns defined
+(defparameter *base-aliases*
+  '(:d (range "09")
+    :a (range "az" "AZ")
+    :w (range "az" "AZ" "09")
+    :s (set (#\tab #\return #\newline #\null #\page #\vt #\space))
+    :h (range "09" "af" "AF")))
+
+(mapcar (lambda (pair) (register-alias-suite! (first pair) (second pair)))
+	(pairs *base-aliases*))
+
 (defun match (rule str &optional (start 0) &rest args)
-  (funcall (if (functionp rule) rule (compile-peg rule))
-	   (initialize-peg-state
-	    str
-	    start
-	    (loop with out = (make-array 0 :fill-pointer t :adjustable t)
-		  for a in args do (vector-push-extend a out)
-		  finally (return out)))))
+  (let ((fn (cond
+	      ((pat-p rule) (pat-fn rule))
+	      ((closure-peg-p rule) (closure-peg-fn rule))
+	      (t (pat-fn (assemble-toplevel rule))))))
+    (funcall fn
+	     (initialize-peg-state
+	      str
+	      start
+	      (loop with out = (make-array 0 :fill-pointer t :adjustable t)
+		    for a in args do (vector-push-extend a out)
+		    finally (return out))))))
 (defun captured (rule str &optional (start 0) &rest args)
-  (multiple-value-bind (matched? caps) (apply #'match rule str start args)
+  (multiple-value-bind (matched? caps) (apply #'match (compile-peg rule) str start args)
     (values caps matched?)))
 
 (defun replace-all (match replace str &optional (start 0) &rest args)
   (multiple-value-bind (matched? caps)
-      (apply #'match `(% (any (+ (/ '(drop ,match) ,replace) '1)))
+      (apply #'match
+	     (compile-peg `(% (any (+ (/ '(drop ,match) ,replace) '1))))
 	     str start args)
     (values (first caps) matched?)))
 
 (defun replace-one (match replace str &optional (start 0) &rest args)
   (multiple-value-bind (matched? caps)
-      (apply #'match `(% (* (<- (to ,match))
-			    (/ '(drop ,match) ,replace)
-			    (<- (any 1))))
+      (apply #'match
+	     (compile-peg `(% (* (<- (to ,match))
+				 (/ '(drop ,match) ,replace)
+				 (<- (any 1)))))
 	     str start args)
     (values (first caps) matched?)))
 
 (defun find-all (match str &optional (start 0) &rest args)
   (multiple-value-bind (_ caps)
-      (apply #'match `(any (* (to ,match) ($) (drop ,match))) ; we'd rather match twice than push and pop
+      (apply #'match
+	     (compile-peg `(any (* (to ,match) ($) (drop ,match)))) ; we'd rather match twice than push and pop
 	     str start args)
     (declare (ignore _))
     caps))
 (defun find-one (match str &optional (start 0) &rest args)
   (multiple-value-bind (_ caps)
-      (apply #'match `(* (to ,match) ($) (drop ,match))
+      (apply #'match
+	     (compile-peg `(* (to ,match) ($) (drop ,match)))
 	     str start args)
     (declare (ignore _))
     (first caps)))
 
-(defun compile-peg (expr &rest opts)
+(defun compile-peg (expr &key (quiet? t) debug?)
   "Compile EXPR to a peg matcher, for use with uclp:match."
-  (let ((out (compile nil (apply #'compile-toplevel expr opts))))
-    out))
+  (compile-toplevel expr :quiet? quiet? :debug? debug?))
+
+(defun assemble-peg (expr &key (quiet? t) debug?)
+  "Assemble EXPR to a peg matcher, for use with uclp:match."
+  (assemble-toplevel expr :quiet? quiet? :debug? debug?))
+
+(defun fill-holes (frame &rest args)
+  (unless (frame-p frame)
+    (error (format nil "~a is not a frame" frame)))
+
+  (%fill-holes frame args))

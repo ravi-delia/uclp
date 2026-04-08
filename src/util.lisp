@@ -42,7 +42,7 @@
 (defun qrestore! (q saved)
   "Should take a queue and the car of that queue at some earlier point"
   (setf (car q) saved)
-  (setf (cdar q) nil))
+  (setf (cdr saved) nil)) ; Claude's recommendation. Thank you Claude!
 
 ;; Accum String: Just an extendable string with save and reload semantics
 
@@ -199,6 +199,7 @@
 	 (save-methods (mapcar #'save-for places))
 	 (bindings (mapcar #'list save-slots save-methods)))
     `(let ,bindings
+       (declare (ignorable ,@save-slots))
        ,@body)))
 
 (defmacro checkpoint (&rest places)
@@ -219,3 +220,20 @@
 
 (defmacro restore (&rest places)
   `(progn ,@(mapcar #'restore-for places)))
+
+(defmacro lift-cond (names conditions-binds &body body)
+  "(lift-cond (var1 var2) ((cond1 binding1 binding2) (cond2 bindinga bindingb)) ...)"
+  (flet ((branch-body (binds)
+	   `(macrolet ,(loop for name in names
+			     for bind in binds
+			     collect `(,name () ',bind))
+	      ,@body)))
+    `(cond
+       ,@(loop for (c . binds) in conditions-binds
+	       collect `(,c ,(branch-body binds))))))
+
+(defmacro lift-when (names (condition &rest binds) &body body)
+  (let ((nlist (if (consp names) names (list names))))
+    `(lift-cond ,nlist ((,condition ,@binds)
+			(t ,@(loop for b in binds collect nil)))
+		,@body)))

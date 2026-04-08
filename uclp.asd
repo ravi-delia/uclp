@@ -2,7 +2,7 @@
   :version "0.1.3"
   :author "Ravi D'Elia"
   :license "MIT"
-  :depends-on (:alexandria :serapeum :trivia)
+  :depends-on (:alexandria)
   :pathname "src"
   :components
   ((:file "uclp")
@@ -10,9 +10,10 @@
    (:file "compile" :depends-on ("util"))
    (:file "basics" :depends-on ("compile"))
    (:file "capture" :depends-on ("compile"))
-   (:file "core" :depends-on ("basics" "capture")))
+   (:file "frame" :depends-on ("compile"))
+   (:file "core" :depends-on ("basics" "capture" "frame")))
   :in-order-to ((test-op (test-op "uclp/test")))
-  :description "An experimental implementation of Janet's PEG module in common lisp")
+  :description "An experimental implementation of Parsing Expression Grammers in Common Lisp")
 
 (defsystem :uclp/test
   :depends-on (:uclp :fiveam)
@@ -22,5 +23,6 @@
    (:file "util-test" :depends-on ("init"))
    (:file "core-test" :depends-on ("init"))
    (:file "basics-test" :depends-on ("init"))
-   (:file "capture-test" :depends-on ("init")))
+   (:file "capture-test" :depends-on ("init"))
+   (:file "frame-test" :depends-on ("init")))
   :perform (test-op (o c) (symbol-call :uclp/test :run-tests!)))
