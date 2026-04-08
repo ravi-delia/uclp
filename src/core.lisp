@@ -15,7 +15,6 @@
 (defun match (rule str &optional (start 0) &rest args)
   (let ((fn (cond
 	      ((pat-p rule) (pat-fn rule))
-	      ((closure-peg-p rule) (closure-peg-fn rule))
 	      (t (pat-fn (assemble-toplevel rule))))))
     (funcall fn
 	     (initialize-peg-state

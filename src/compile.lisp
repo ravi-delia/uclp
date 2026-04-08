@@ -157,7 +157,6 @@ In BODY, OPTS is anaphorically bound"
 
 (defstruct (pat) fn peg-src)
 (defstruct (frame) hole-names frame-fn peg-src)
-(defstruct (closure-peg) fn src)
 
 (defun print-peg-state (state stream depth)
   (declare (ignore depth state))
