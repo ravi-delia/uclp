@@ -12,6 +12,20 @@
 (mapcar (lambda (pair) (register-alias-suite! (first pair) (second pair)))
 	(pairs *base-aliases*))
 
+(defun compile-peg (expr &key (quiet? t) debug?)
+  "Compile EXPR to a peg matcher, for use with uclp:match."
+  (compile-toplevel expr :quiet? quiet? :debug? debug?))
+
+(defun assemble-peg (expr &key (quiet? t) debug?)
+  "Assemble EXPR to a peg matcher, for use with uclp:match."
+  (assemble-toplevel expr :quiet? quiet? :debug? debug?))
+
+(defun fill-holes (frame &rest args)
+  (unless (frame-p frame)
+    (error (format nil "~a is not a frame" frame)))
+
+  (%fill-holes frame args))
+
 (defun match (rule str &optional (start 0) &rest args)
   (let ((fn (cond
 	      ((pat-p rule) (pat-fn rule))
@@ -24,7 +38,7 @@
 		    for a in args do (vector-push-extend a out)
 		    finally (return out))))))
 (defun captured (rule str &optional (start 0) &rest args)
-  (multiple-value-bind (matched? caps) (apply #'match (compile-peg rule) str start args)
+  (multiple-value-bind (matched? caps) (apply #'match rule str start args)
     (values caps matched?)))
 
 (defun replace-all (match replace str &optional (start 0) &rest args)
@@ -43,31 +57,24 @@
 	     str start args)
     (values (first caps) matched?)))
 
+(defparameter *find-all-frame*
+  (compile-peg `(any (+ (* ($) (drop (hole :looking-for))) 1))))
+
 (defun find-all (match str &optional (start 0) &rest args)
   (multiple-value-bind (_ caps)
       (apply #'match
-	     (compile-peg `(any (* (to ,match) ($) (drop ,match)))) ; we'd rather match twice than push and pop
+	     (fill-holes *find-all-frame* :looking-for match)
 	     str start args)
     (declare (ignore _))
     caps))
+
+(defparameter *find-one-frame*
+  (compile-peg '(* (to (hole :looking-for)) ($))))
+
 (defun find-one (match str &optional (start 0) &rest args)
   (multiple-value-bind (_ caps)
       (apply #'match
-	     (compile-peg `(* (to ,match) ($) (drop ,match)))
+	     (fill-holes *find-one-frame* :looking-for match)
 	     str start args)
     (declare (ignore _))
     (first caps)))
-
-(defun compile-peg (expr &key (quiet? t) debug?)
-  "Compile EXPR to a peg matcher, for use with uclp:match."
-  (compile-toplevel expr :quiet? quiet? :debug? debug?))
-
-(defun assemble-peg (expr &key (quiet? t) debug?)
-  "Assemble EXPR to a peg matcher, for use with uclp:match."
-  (assemble-toplevel expr :quiet? quiet? :debug? debug?))
-
-(defun fill-holes (frame &rest args)
-  (unless (frame-p frame)
-    (error (format nil "~a is not a frame" frame)))
-
-  (%fill-holes frame args))
