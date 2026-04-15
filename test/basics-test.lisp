@@ -35,6 +35,10 @@
   (isnt-match -2 "ab")
   (is-match -2 "a" :start 1))
 
+(asm-test choice
+  (check-pat '(+ "a" "b" "c")
+    :match "a" "b" "c"))
+
 (asm-test range
   (is-match '(range "ac") "a")
   (is-match '(range (#\a #\c)) "c")
@@ -101,3 +105,7 @@
   ; does not advance past the end of the input
   (is-match '(* (split "," ':w+) 0) "a,b,c" 
 	    :result '("a" "b" "c")))
+
+;; Regression 2026-03-11
+;; Assembled choice operator ignores options other than first or last
+(asm-test middle-choice (is-match '(+ "a" "b" "c") "b"))

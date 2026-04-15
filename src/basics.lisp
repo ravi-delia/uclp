@@ -127,8 +127,7 @@
       (with-save (curr caps tags accum)
 	(or (loop for fn of-type function across buttail
 		  do (when (funcall fn state) (return t))
-		     (restore curr caps tags accum)
-		     (return nil))
+		     (restore curr caps tags accum))
 	    (funcall tail state))))))
 
 (defun compile-several (opts pat minimum &optional maximum)
@@ -358,9 +357,9 @@
 	  (setf curr-bak curr)
 	  (setf ,$init-curr curr)
 	  (loop until (setf ,$cont? ,(compile-expr opts `(drop ,div)))
-		while (< curr strlen) do
-		   (incf curr)
-		   (incf ,$init-curr)
+		while (< ,$init-curr strlen) do
+		;; As the caller, since div failed, we reset curr
+		   (setf curr (incf ,$init-curr)) 
 		finally
 		   (setf strlen ,$init-curr)
 		   (setf ,$after-curr curr)
@@ -388,9 +387,8 @@
 	   (setf curr-bak curr)
 	   (setf init-curr curr)
 	   (loop until (setf cont? (funcall sep state))
-		 while (< curr strlen) do
-		    (incf curr)
-		    (incf init-curr)
+		 while (< init-curr strlen) do
+		    (setf curr (incf init-curr))
 		 finally
 		    (setf strlen init-curr)
 		    (setf after-curr curr)
