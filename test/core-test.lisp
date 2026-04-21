@@ -27,6 +27,15 @@
     (is-match comp-pat "aaa|aaa") ; Can pass to match
     (is-match `(split "," ,comp-pat) "a|a,abba,aa|aa"))) ; Can compose
 
+(test assemble-peg
+  (let ((asm-pat (assemble-peg '(grammar
+				 :a (* "a" :b "a")
+				 :b (+ "bb" :a "|")
+				 :main :a))))
+    (is-match asm-pat "aaa|aaa") ; Can pass to match
+    (is-match `(split "," ,asm-pat) "a|a,abba,aa|aa") ; Can be assembled
+    (is-match (compile-peg `(split "," ,asm-pat)) "a|a,abba,aa|aa"))) ; Can be compiled
+
 (test replace
   (is (string= (replace-one '(* (set "Rr") "avi" (? "'s")) "John" "Ravi's name is ravi")
 	       "John name is ravi"))
