@@ -1,13 +1,12 @@
 * Unnamed Common Lisp Peg
 
-UCLP is an experimental implementation of [[https://en.wikipedia.org/wiki/Parsing_expression_grammar][PEG parsing]] in Common Lisp which compiles
-grammar rules directly to source code at runtime. A parsing expression grammar is a very
-elegant way of recognizing, parsing, and transforming text- much more powerful than
-regular expressions without the complexity of a custom-built parser. Note that while it is
-possible to parse PEGs in guaranteed linear time (at the cost of linear space) with a
-packrat parser, UCLP does not. Most patterns unless very poorly written will run in linear
-time anyway, and for ease of use some necessary departures from the strict definition are
-included.
+UCLP is an experimental implementation of [[https://en.wikipedia.org/wiki/Parsing_expression_grammar][PEG parsing]] in Common Lisp. A parsing expression
+grammar is a very elegant way of recognizing, parsing, and transforming text- much more
+powerful than regular expressions without the complexity of a custom-built parser. Note
+that while it is possible to parse PEGs in guaranteed linear time (at the cost of linear
+space) with a packrat parser, UCLP does not. Most patterns, unless very pathological, can
+be rewritten to run in linear time, and for ease of use some necessary departures from the
+strict definition are included.
 
 UCLP patterns are just made of native data structures, so it's easy to compose patterns
 and interact with them in code. Unlike regular expressions, PEG syntax is pretty readable
@@ -51,19 +50,26 @@ The peg syntax used by UCLP is largely a 1:1 reproduction of Janet's. Difference
 noted below, but otherwise you can safely default to using [[https://janet-lang.org/docs/peg.html][Janet's documentation]]. Many
 tasks that might require a particular function when using regex can be accomplished with
 the correct pattern. However, for convenience, there are entrypoints for a few common
-usecases. 
+use-cases. 
 
 *** ~(match rule str &optional start &rest args)~
 This is the primary entrypoint to UCLP. Matches ~str~ against ~rule~ anchored to ~start~.
 Returns two values on success, a boolean indicating success or failure and a list of
-captures, and nil otherwise. Additional arguments are accessable while matching using the
+captures, and nil otherwise. Additional arguments are accessible while matching using the
 ~argument~ pattern. Note that if using additional arguments you must specify a ~start~.
 
 *** ~(compile-peg rule &key (quiet? t) debug?)~
-Compiles ~rule~ to source ahead of time. Even with SBCL's lightning quick compilation this
-can still save a significant amount of time, and for many rules almost all the
-consing. The result is just a closure, and it can be used in other patterns by including
-it literally. Does not promise to be nice if used outside its wrapper.
+Compiles ~rule~ to source ahead of time. The resulting compiled peg can be used anywhere a
+pattern is taken, such as in ~match~ or any other entrypoint here. If there are any holes,
+instead compiles to a frame which can be filled with ~fill-holes~.
+
+*** ~(assemble-peg rule &key (quiet? t) debug?)~
+Compiles ~rule~ to a chain of closures. Like ~compile-peg~, if there are any holes, this
+will return a frame. For more information, see Assembling vs Compiling.
+
+*** ~(fill-holes frame &rest names-and-values)~
+Takes a frame and a &rest parameter consisting of alternating hole names and values. For
+more on frames and holes please see Holes below.
 
 *** ~(captured rule str &optional start &rest args)~
 Takes exactly the same arguments as ~match~ but returns in the opposite order- first the
@@ -119,23 +125,8 @@ I'll bring in ~parse-float~ to make a ~float~ as well as a general ~number~ patt
 *** Implemented
 - While UCLP does not have ~number~, it does have ~integer~, which takes identical
   arguments and parses an integer using ~parse-integer~.
-- The pattern ~(split div-pat fill-pat)~ was contributed to Janet but not yet released.
-  It will match when ~fill-pat~ matches each segment of the input when divided by
-  ~div-pat~. However, it is a little more complicated than that. For one, ~split~ always
-  matches against the entire input. If you don't want that, you need to use a ~sub~
-  pattern to contain it. This means that something like ~(match '(split "," 1) "a,b,c,")~
-  will not match! Additionally, ~fill-pat~ is implicitly matched in a ~sub~- so if you
-  want to match everything between your seperators, you can use a pattern like
-  ~(split "," (any 1))~. Look at the test cases for examples here.
-- The pattern ~(split div-pat fill-pat)~ was contributed to Janet but not yet released.
-  It matches if the input string consists of instances of ~fill-pat~ split apart by
-  ~div-pat~. Look at the test cases to get a finer idea of the details, but it is
-  equivalent to the following pattern:
-  #+BEGIN_SRC lisp
-    `(grammar
-      :mid (sub (to (+ ,div-pat -1)) ,fill-pat) ; fill-pat matches up to the next div 
-      :main (* :mid (any (* (drop ,div-pat) :mid)) -1)) 
-  #+END_SRC
+- To create a template PEG with holes filled in later, UCLP introduces the ~(hole name)~
+  pattern. For more information on holes, see *Holes* below.
   
 *** Changes
 - Anywhere a string literal can go, including those in ~range~ or ~set~, a character or
@@ -158,7 +149,43 @@ I'll bring in ~parse-float~ to make a ~float~ as well as a general ~number~ patt
   marked by a ~?~. So ~:w?~ denotes ~(? :w)~.
 - UCLP includes any (~*~), some (~+~), and maybe (~?~) variants of complement patterns. So
   ~:!d+~ is ~(some (if-not :d 1))~. See *Aliases* below
+
+** Compiling vs Assembling
+The initial concept for UCLP was that all patterns would be translated to Common Lisp
+source and compiled at runtime. This provides the fastest matching, but even with SBCL's
+lightning-fast compile times there is a significant amount of overhead. Therefore,
+patterns can either be assembled or compiled.
+
+An assembled PEG can be used exactly like a compiled PEG. Both are simply Common Lisp
+functions wrapped in a struct, which can be transparently passed to ~match~ or composed
+with other patterns. However, unlike compiling a PEG, assembling is fast- fewer than a few
+milliseconds. The tradeoff is that they're up to 3 times slower at match time.
+
+For one-off patterns created at runtime, it makes the most sense to assemble rather than
+compile. That's why PEGs passed as raw data are transparently assembled, not compiled. If
+you know a pattern in advance, you can compile it ahead of time with ~compile-peg~.
+
+To get as much compiled performance as possible without paying compile costs at runtime,
+see *Holes* below.
   
+** Holes
+UCLP introduces the ~(hole name)~ pattern, which represents an unknown pattern which will be
+filled in later. Name is a keyword. If a PEG with a ~hole~ is compiled or assembled, the
+result will be a frame. A frame can be turned into a pattern by providing a value for each
+hole. Two holes with the same name will be filled with the same pattern. 
+
+#+BEGIN_SRC lisp
+  (defparameter *delimited-frame*
+    (compile-peg '(split (hole :div) '(any 1))))
+  (defparameter *s* "123,456|789")
+
+  (match (fill-holes *delimited-frame* :div ",") *s*) ; => t ("123" "456|789")
+  (match (fill-holes *delimited-frame* :div "|") *s*) ; => t ("123,456" "789")
+#+END_SRC
+
+Holes allow you to compile almost an entire PEG ahead of time, assembling just what's
+needed on demand to avoid paying the compilation overhead at runtime.
+
 ** Aliases
 UCLP offers aliases, keywords that stand in for larger patterns, similar to the Janet's
 built-in patterns. And like built-in patterns, aliases are user extensible. However, there
@@ -191,9 +218,9 @@ UCLP special cases conditions inheriting from ~peg-error~, which is exported. A
 ~peg-error~ has slots ~pat~, ~matched~, and ~caps~. If a pattern is given, these will
 automatically be filled by the pattern itself, the text that pattern matched, and the
 captures from the pattern respectively. If no pattern is supplied they will all be
-~nil~. These slots can be accessed with ~error-pat~, ~error-matched~, and ~caps~. By
+~nil~. These slots can be accessed with ~error-pat~, ~error-matched~, and ~error-caps~. By
 default ~peg-error~ has a report function giving the pattern and, if nonempty, the
 matching substring. Depending on your choice of pattern, this can be tolerably readable.
 
 #  LocalWords:  UCLP alist LocalWords subpatterns structs datatypes PEGs packrat footguns
-#  LocalWords:  SBCL performant
+#  LocalWords:  SBCL performant entrypoint entrypoints regex SBCL's struct
