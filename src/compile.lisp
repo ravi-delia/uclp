@@ -191,7 +191,7 @@ In BODY, OPTS is anaphorically bound"
 
 (defun top-declaration (quiet? debug? &rest items)
   (let ((muffler #+sbcl '(sb-ext:muffle-conditions sb-ext:compiler-note) #-sbcl nil))
-    `(declare ,@(list-if quiet? muffler)
+    `(declare ,@(list-if (and quiet? muffler) muffler)
 	      (optimize ,@(if debug?
 			      '((speed 0))
 			      '((debug 0) (speed 3))))
